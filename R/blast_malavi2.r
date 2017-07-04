@@ -27,7 +27,8 @@ blast_malavi <- function(sequence, evalue = 1e-80, hits = 5, print.alignments = 
   x <- content(result$response, as = "text")
 
   if(!is.na(str_extract(x, "No hits found"))){
-    print("No hits found: check your input sequence")
+    warning("No hits found: check your input sequence")
+    out.empty <- data.frame(Lineage = NA, Score = NA, Identities = NA, Gaps = NA, Strand = NA)
   } else{
 
     ## construct output table
@@ -48,5 +49,7 @@ blast_malavi <- function(sequence, evalue = 1e-80, hits = 5, print.alignments = 
 
   if(exists("out.df")){
     return(out.df)
+  } else{
+    return(out.empty)
   }
 }
