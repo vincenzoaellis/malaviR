@@ -1,0 +1,48 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "README-"
+)
+```
+
+# malaviR
+
+The goal of this package is to be an R interface to the global avian haemosporidian database MalAvi (http://mbio-serv2.mbioekol.lu.se/Malavi/). The package includes functions for downloading data from the MalAvi website directly into your R environment. You can also use malaviR to BLAST your haemosporidian DNA sequences against the MalAvi database programmatically, which should facilitate comparisons with MalAvi. 
+The package also includes a key for linking the host taxonomic classifications in MalAvi with the avian taxonomic classifications found on http://birdtree.org/.
+
+## Installation
+
+You can install malaviR from github with:
+
+```{r gh-installation, eval = FALSE}
+# install.packages("devtools")
+devtools::install_github("vincenzoaellis/malaviR")
+```
+
+## Download tables from MalAvi
+
+Here's how you would download the table of references from the MalAvi database:
+
+```{r example}
+library(malaviR)
+refs <- extract_table("Table of References")
+head(refs) # check it out
+```
+
+## BLAST a sequence to MalAvi
+
+```{r example2}
+## define a sequence. This is the Plasmodium parasite ACAGR1
+ACAGR1 <- "GCAACTGGTGCTTCATTTGTATTTATTTTAACTTATTTACATATTTTAAGAGGATTAAATTATTCATATTCATATTTACCTTTATCATGGATATCTGGATTAATAATATTTTTAATATCTATAGTAACAGCTTTTATGGGTTACGTATTACCTTGGGGTCAAATGAGTTTCTGGGGTGCTACCGTAATAACTAATTTATTATATTTTATACCTGGACTAGTTTCATGGATATGTGGTGGATATCTTGTAAGTGACCCAACCTTAAAAAGATTCTTTGTACTACATTTTACATTTCCTTTTATAGCTTTATGTATTGTATTTATACATATATTCTTTCTACATTTACAAGGTAGCACAAATCCTTTAGGGTATGATACAGCTTTAAAAATACCCTTCTATCCAAATCTTTTAAGTCTTGATATTAAAGGATTTAATAATGTATTAGTATTATTTTTAGCACAAAGTTTATTTGGAATACT"
+
+## BLAST it against the MalAvi database and save the top five hits to a data frame
+hits <- blast_malavi(ACAGR1)
+hits # check it out
+```
