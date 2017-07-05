@@ -3,7 +3,9 @@
 malaviR
 =======
 
-The goal of this package is to be an R interface to the global avian haemosporidian database MalAvi (<http://mbio-serv2.mbioekol.lu.se/Malavi/>). The package includes functions for downloading data from the MalAvi website directly into your R environment. You can also use malaviR to BLAST your haemosporidian DNA sequences against the MalAvi database programmatically, which should facilitate comparisons with MalAvi. The package also includes a key for linking the host taxonomic classifications in MalAvi with the avian taxonomic classifications found on <http://birdtree.org/>.
+The goal of this package is to be an R interface to the global avian haemosporidian database MalAvi (<http://mbio-serv2.mbioekol.lu.se/Malavi/>). The package includes functions for downloading data from the MalAvi website directly into your R environment. You can also use malaviR to BLAST your haemosporidian DNA sequences against the MalAvi database programmatically, which should facilitate comparisons with MalAvi.
+
+The package also includes a key for linking the host taxonomic classifications in MalAvi with the avian taxonomic classifications found on <http://birdtree.org/>.
 
 Installation
 ------------
@@ -18,7 +20,7 @@ devtools::install_github("vincenzoaellis/malaviR")
 Download tables from MalAvi
 ---------------------------
 
-Here's how you would download the table of references from the MalAvi database:
+There are nine tables that can be downloaded from the MalAvi website summarizing the dataset. Here's how you would download the table of references from the MalAvi database:
 
 ``` r
 library(malaviR)
@@ -54,8 +56,12 @@ head(refs) # check it out
 #> 6     Veterinary
 ```
 
+The `extract_table()` help file lists all nine tables you can download directly into `R`. Or you can specify `"all"` and get them all as a list.
+
 BLAST a sequence to MalAvi
 --------------------------
+
+You can BLAST your own sequences against the MalAvi database using the `blast_malavi()` function. Your input sequence just needs to be specified as a character string.
 
 ``` r
 ## define a sequence. This is the Plasmodium parasite ACAGR1
@@ -65,10 +71,10 @@ ACAGR1 <- "GCAACTGGTGCTTCATTTGTATTTATTTTAACTTATTTACATATTTTAAGAGGATTAAATTATTCATAT
 hits <- blast_malavi(ACAGR1)
 #> Submitting with 'sequence'
 hits # check it out
-#>    Lineage Score Identities  Gaps    Strand
-#> 1   ACAGR1   885    479/479 0/479 Plus/Plus
-#> 2     SGS1   880    478/479 0/479 Plus/Plus
-#> 3  CXPIP20   876    476/477 0/477 Plus/Plus
-#> 4     YWT4   874    477/479 0/479 Plus/Plus
-#> 5 SERCAN01   874    477/479 0/479 Plus/Plus
+#>    Lineage Score Identities  Gaps    Strand Coverage Perfect.Match
+#> 1   ACAGR1   885    479/479 0/479 Plus/Plus      479           Yes
+#> 2     SGS1   880    478/479 0/479 Plus/Plus      479            No
+#> 3  CXPIP20   876    476/477 0/477 Plus/Plus      477            No
+#> 4     YWT4   874    477/479 0/479 Plus/Plus      479            No
+#> 5 SERCAN01   874    477/479 0/479 Plus/Plus      479            No
 ```
