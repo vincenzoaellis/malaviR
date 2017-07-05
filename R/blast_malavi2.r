@@ -28,7 +28,8 @@ blast_malavi <- function(sequence, evalue = 1e-80, hits = 5, print.alignments = 
 
   if(!is.na(str_extract(x, "No hits found"))){
     warning("No hits found: check your input sequence")
-    out.empty <- data.frame(Lineage = NA, Score = NA, Identities = NA, Gaps = NA, Strand = NA)
+    out.empty <- data.frame(Lineage = NA, Score = NA, Identities = NA, Gaps = NA, Strand = NA,
+                            Coverage = NA)
   } else{
 
     ## construct output table
@@ -41,6 +42,7 @@ blast_malavi <- function(sequence, evalue = 1e-80, hits = 5, print.alignments = 
                            str_replace("Gaps = ", ""),
                          Strand = str_extract(strsplit(x, "&gt")[[1]][2:(hits+1)], "Strand=[A-Z][a-z]+/[A-Z][a-z]+" %>%
                                                 str_replace("Strand=", "")))
+    out.df$Coverage <- str_extract(out.df$Identities, "/[0-9]+") %>% str_replace("/", "") %>% as.numeric
   }
 
   if(print.alignments == TRUE){
