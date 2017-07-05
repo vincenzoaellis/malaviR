@@ -36,17 +36,16 @@ An object of class \code{data.frame} with resulting hits and information regardi
 \references{
 Bensch S, Hellgren O, and Perez-Tris J. 2009. MalAvi: a public database of malaria parasites and related
 haemosporidians in avian hosts based on mitochondrial cytochrome \emph{b} lineages. Molecular Ecology Resources 9: 1353-1358.
+\cr
+
 \url{http://mbio-serv2.mbioekol.lu.se/Malavi/blast.html}
 }
 \author{
 Vincenzo A. Ellis \email{vincenzoaellis@gmail.com}
 }
 \note{
-%%  ~~further notes~~
+\code{Perfect.Match} in the output data frame refers to whether the pairwise alignments were identical irrespective of the coverage (e.g., an input sequence with low coverage could still generate, and often will generate, a perfect match with one or more sequences in MalAvi).
 }
-
-%% ~Make other sections like Warning with \section{Warning }{....} ~
-
 \seealso{
 %% ~~objects to See Also as \code{\link{help}}, ~~~
 }
