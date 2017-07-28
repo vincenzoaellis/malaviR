@@ -78,3 +78,32 @@ hits # check it out
 #> 4     YWT4   874    477/479 0/479 Plus/Plus      479            No
 #> 5 SERCAN01   874    477/479 0/479 Plus/Plus      479            No
 ```
+
+Download the MalAvi sequence alignments
+---------------------------------------
+
+Using the `extract_alignment()` function, you can download all of the sequences on MalAvi, or the complete or nearly complete sequences only, or the sequences associated with morphological species only. These alignments will appear as objects of the class `DNAbin`, defined in the `ape` package.
+
+``` r
+## download all sequences
+all.seqs <- extract_alignment("all seqs")
+all.seqs #check it out
+#> 2771 DNA sequences in binary format stored in a matrix.
+#> 
+#> All sequences of same length: 479 
+#> 
+#> Labels:
+#> H_ACAED01
+#> P_ACAGR1
+#> H_ACAGR2
+#> H_ACATEN01
+#> L_ACCBRE01
+#> L_ACCBRE02
+#> ...
+#> 
+#> Base composition:
+#>     a     c     g     t 
+#> 0.294 0.133 0.135 0.438
+```
+
+The `extract_alignment()` help file lists the names of the sequence alignments that the function understands.
