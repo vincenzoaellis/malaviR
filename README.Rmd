@@ -51,3 +51,15 @@ ACAGR1 <- "GCAACTGGTGCTTCATTTGTATTTATTTTAACTTATTTACATATTTTAAGAGGATTAAATTATTCATAT
 hits <- blast_malavi(ACAGR1)
 hits # check it out
 ```
+
+## Download the MalAvi sequence alignments
+
+Using the `extract_alignment()` function, you can download all of the sequences on MalAvi, or the complete or nearly complete sequences only, or the sequences associated with morphological species only. These alignments will appear as objects of the class `DNAbin`, defined in the `ape` package.
+
+```{r example3}
+## download all sequences
+all.seqs <- extract_alignment("all seqs")
+all.seqs #check it out
+```
+
+The `extract_alignment()` help file lists the names of the sequence alignments that the function understands.
