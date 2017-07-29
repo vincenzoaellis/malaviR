@@ -10,8 +10,6 @@ extract_alignment <- function(alignment = "all seqs"){
   names(alignment.urls) <- alignment.names
   if(!(alignment %in% alignment.names)){
     stop('Please choose one of the following alignment names: "all seqs", "long seqs", "morpho seqs"')
-    return(c(cat("Please choose one of the following alignment names: "),
-             cat(alignment.names, sep = ", ")))
   } else{
     return(read.dna(alignment.urls[alignment], format = "fasta"))
   }
