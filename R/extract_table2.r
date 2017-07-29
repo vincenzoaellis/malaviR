@@ -27,51 +27,6 @@ extract_table <- function(table = "Hosts and Sites Table"){
          "Parasite Summary Per Host", "Table of Lineage Names", "Morpho Species Summary",
          "Vector Data Table", "Other Genes Table", "Database Summary Report", or "all"')
   }
-  if(table == table.names[1]){
-    data.url <- read_html(table.urls[table]) %>% html_nodes("a") %>% html_attr("href")
-    data.url.n <- sub("../", "", data.url)
-    return(fread(paste(base.url, data.url.n, sep = ""), data.table = FALSE))
-  }
-  if(table == table.names[2]){
-    data.url <- read_html(table.urls[table]) %>% html_nodes("a") %>% html_attr("href")
-    data.url.n <- sub("../", "", data.url)
-    return(fread(paste(base.url, data.url.n, sep = ""), data.table = FALSE))
-  }
-  if(table == table.names[3]){
-    data.url <- read_html(table.urls[table]) %>% html_nodes("a") %>% html_attr("href")
-    data.url.n <- sub("../", "", data.url)
-    return(fread(paste(base.url, data.url.n, sep = ""), data.table = FALSE))
-  }
-  if(table == table.names[4]){
-    data.url <- read_html(table.urls[table]) %>% html_nodes("a") %>% html_attr("href")
-    data.url.n <- sub("../", "", data.url)
-    return(fread(paste(base.url, data.url.n, sep = ""), data.table = FALSE))
-  }
-  if(table == table.names[5]){
-    data.url <- read_html(table.urls[table]) %>% html_nodes("a") %>% html_attr("href")
-    data.url.n <- sub("../", "", data.url)
-    return(fread(paste(base.url, data.url.n, sep = ""), data.table = FALSE))
-  }
-  if(table == table.names[6]){
-    data.url <- read_html(table.urls[table]) %>% html_nodes("a") %>% html_attr("href")
-    data.url.n <- sub("../", "", data.url)
-    return(fread(paste(base.url, data.url.n, sep = ""), data.table = FALSE))
-  }
-  if(table == table.names[7]){
-    data.url <- read_html(table.urls[table]) %>% html_nodes("a") %>% html_attr("href")
-    data.url.n <- sub("../", "", data.url)
-    return(fread(paste(base.url, data.url.n, sep = ""), data.table = FALSE))
-  }
-  if(table == table.names[8]){
-    data.url <- read_html(table.urls[table]) %>% html_nodes("a") %>% html_attr("href")
-    data.url.n <- sub("../", "", data.url)
-    return(fread(paste(base.url, data.url.n, sep = ""), data.table = FALSE))
-  }
-  if(table == table.names[9]){
-    data.url <- read_html(table.urls[table]) %>% html_nodes("a") %>% html_attr("href")
-    data.url.n <- sub("../", "", data.url)
-    return(fread(paste(base.url, data.url.n, sep = ""), data.table = FALSE))
-  }
   if(table == "all"){
     data.list <- list()
     for(i in 1:length(table.urls)){
@@ -81,6 +36,9 @@ extract_table <- function(table = "Hosts and Sites Table"){
     }
     names(data.list) <- table.names
     return(data.list)
+  } else {
+    data.url <- read_html(table.urls[table]) %>% html_nodes("a") %>% html_attr("href")
+    data.url.n <- sub("../", "", data.url)
+    return(fread(paste(base.url, data.url.n, sep = ""), data.table = FALSE))
   }
 }
-
