@@ -14,7 +14,7 @@ knitr::opts_chunk$set(
 
 # malaviR
 
-The goal of this package is to be an R interface to the global avian haemosporidian database MalAvi (http://mbio-serv2.mbioekol.lu.se/Malavi/). The package includes functions for downloading data from the MalAvi website directly into your R environment. You can also use malaviR to BLAST your haemosporidian DNA sequences against the MalAvi database programmatically, which should facilitate comparisons with MalAvi.  
+The goal of this package is to be an R interface to the global avian haemosporidian database MalAvi (http://mbio-serv2.mbioekol.lu.se/Malavi/). The package includes functions for downloading data from the MalAvi website directly into your R environment and some basic utility functions for manipulating those data. You can also use malaviR to BLAST your haemosporidian DNA sequences against the MalAvi database programmatically, which should facilitate comparisons with MalAvi.  
   
 The package also includes a key for linking the host taxonomic classifications in MalAvi with the avian taxonomic classifications found on http://birdtree.org/.
 
@@ -71,5 +71,41 @@ The package includes a taxonomic key linking (nearly all) host species names fro
 ```{r example 4}
 ## check out taxonomic host key
 head(taxonomy)
+```
+
+## Identifying sister lineages from a given node
+
+Phylogenetic inference into the MalAvi lineages is difficult due to the limited sequence data available. The best one can do is often to study sister lineages in the phylogeny that are linked by well supported nodes. The function `sister_taxa()` gives a list of lineages on either side of a specific node in a phylogeny.
+
+```{r example 5}
+## simulate a phylogenetic tree with 10 taxa using the rtree() function in the ape package
+library(ape)
+tree <- rtree(n=10)
+
+## the node labels of the tree can then be examined (not run)
+#plot(tree)
+#nodelabels()
+
+## the root of the tree has node label "11" and we can extract sister lineages from the root;
+## the sister taxa are grouped into two clades with arbitrary labels of "1" and "2"
+(sis.tax.df <- sister_taxa(tree, 11))
+```
+
+This function can be used to identify lineages for further analysis or for visualization purposes. For example, you could highlight the clades of the two sets of sister lineages by plotting them in different colors.
+
+```{r example 6}
+## get edge labels (i.e., branch labels) for edges leading to sister clade 2 using the
+## which.edge() function from the ape package; we access the third column from the sis.tax.df
+## object which olds the taxa names for taxa from sister clade 2 and we convert the names to characters
+sis.clade2 <- which.edge(tree, as.character(sis.tax.df[sis.tax.df$sister.clade == 2, 3]))
+
+## assign a color to all the edges of the tree
+edge.color <- rep("gray45", dim(tree$edge)[1])
+
+## change that color for the edges corresponding to sister clade 2
+edge.color[sis.clade2] <- "red"
+
+## plot the tree
+plot(tree, edge.color = edge.color, edge.width = 2)
 ```
 
