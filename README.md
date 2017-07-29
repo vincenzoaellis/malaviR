@@ -114,7 +114,7 @@ head(taxonomy)
 Identifying sister lineages from a given node
 ---------------------------------------------
 
-Phylogenetic inference into the MalAvi lineages is difficult due to the limited sequence data available. The best one can do is often to study sister lineages in the phylogeny that are linked by well supported nodes. The function `sister_taxa()` gives a list of lineages on either side of a specific node in a phylogeny.
+Phylogenetic inference into the MalAvi lineages is difficult due to the limited sequence data available. Often, the best one can do is to study sister lineages in the phylogeny that are linked by well supported nodes. The function `sister_taxa()` gives a list of lineages on either side of a specific node in a phylogeny.
 
 ``` r
 ## simulate a phylogenetic tree with 10 taxa using the rtree() function in the ape package
@@ -129,16 +129,16 @@ tree <- rtree(n=10)
 ## the sister taxa are grouped into two clades with arbitrary labels of "1" and "2"
 (sis.tax.df <- sister_taxa(tree, 11))
 #>    ancestral.node sister.clade taxa
-#> 1              11            1   t4
-#> 2              11            1  t10
-#> 3              11            1   t9
-#> 4              11            1   t3
-#> 5              11            2   t6
-#> 6              11            2   t1
-#> 7              11            2   t7
-#> 8              11            2   t8
-#> 9              11            2   t5
-#> 10             11            2   t2
+#> 1              11            1   t3
+#> 2              11            1   t2
+#> 3              11            1   t8
+#> 4              11            1  t10
+#> 5              11            1   t9
+#> 6              11            2   t7
+#> 7              11            2   t5
+#> 8              11            2   t6
+#> 9              11            2   t4
+#> 10             11            2   t1
 ```
 
 This function can be used to identify lineages for further analysis or for visualization purposes. For example, you could highlight the clades of the two sets of sister lineages by plotting them in different colors.

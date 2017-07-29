@@ -75,7 +75,7 @@ head(taxonomy)
 
 ## Identifying sister lineages from a given node
 
-Phylogenetic inference into the MalAvi lineages is difficult due to the limited sequence data available. The best one can do is often to study sister lineages in the phylogeny that are linked by well supported nodes. The function `sister_taxa()` gives a list of lineages on either side of a specific node in a phylogeny.
+Phylogenetic inference into the MalAvi lineages is difficult due to the limited sequence data available. Often, the best one can do is to study sister lineages in the phylogeny that are linked by well supported nodes. The function `sister_taxa()` gives a list of lineages on either side of a specific node in a phylogeny.
 
 ```{r example 5}
 ## simulate a phylogenetic tree with 10 taxa using the rtree() function in the ape package
