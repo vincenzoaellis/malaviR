@@ -42,6 +42,7 @@ The sister taxa are grouped by the variable \code{sister.clade} as either a \cod
 }
 \examples{
 ## simulate a phylogenetic tree using the rtree function in the ape package
+library(ape)
 tree <- rtree(n=10)
 
 ## check out node numbers
