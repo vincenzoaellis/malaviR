@@ -29,12 +29,12 @@ devtools::install_github("vincenzoaellis/malaviR")
 
 ## Download tables from MalAvi
 
-There are nine tables that can be downloaded from the MalAvi website summarizing the dataset. Here's how you would download the table of references from the MalAvi database:
+There are nine tables that can be downloaded from the MalAvi website summarizing the dataset. Here's how you would download the table linking morphological species to genetic lineages from the MalAvi database:
 
 ```{r example}
 library(malaviR)
-refs <- extract_table("Table of References")
-head(refs) # check it out
+morph <- extract_table("Morpho Species Summary")
+head(morph) # check it out
 ```
 
 The `extract_table()` help file lists all nine tables you can download directly into `R`. Or you can specify `"all"` and get them all as a list.  
@@ -63,3 +63,13 @@ all.seqs #check it out
 ```
 
 The `extract_alignment()` help file lists the names of the sequence alignments that the function understands.
+
+## Taxonomic key for host species
+
+The package includes a taxonomic key linking (nearly all) host species names from MalAvi with the species names used in the phylogenetic analysis found on http://birdtree.org/. The latter species names are in a column labeled `Jetz.species` and have an underscore between the genus and species as they would appear if you were to download trees from the website. The key is stored in a data object called `taxonomy` which can be called directly once the package is loaded.
+
+```{r example 4}
+## check out taxonomic host key
+head(taxonomy)
+```
+

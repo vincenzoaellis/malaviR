@@ -20,40 +20,26 @@ devtools::install_github("vincenzoaellis/malaviR")
 Download tables from MalAvi
 ---------------------------
 
-There are nine tables that can be downloaded from the MalAvi website summarizing the dataset. Here's how you would download the table of references from the MalAvi database:
+There are nine tables that can be downloaded from the MalAvi website summarizing the dataset. Here's how you would download the table linking morphological species to genetic lineages from the MalAvi database:
 
 ``` r
 library(malaviR)
-refs <- extract_table("Table of References")
-head(refs) # check it out
-#>   #no             Reference_Name year
-#> 1   1           Alley et al 2010 2010
-#> 2   2         Argilla et al 2013 2013
-#> 3   3           Aysul et al 2013 2013
-#> 4   4     Baillie & Brunton 2011 2011
-#> 5   5 Balasubramaniam et al 2013 2013
-#> 6   6           Banda et al 2012 2012
-#>                                                                                                                                            title
-#> 1          Concurrent avian malaria and avipox virus infection in translocated South Island Saddlebacks (Philesturnus carunculatus carunculatus)
-#> 2 High prevalence of Leucocytozoon spp. in the endangered yellow-eyed penguin (Megadyptes antipodes) in the sub-Antarctic regions of New Zealand
-#> 3                                      Detection and molecular characterization of a Haemoproteus lineage in a tawny owl (Strix Aluco) in Turkey
-#> 4                     Diversity, distribution and biogeographical origins of Plasmodium parasites from New Zealand bellbird (Anthornis melanura)
-#> 5                                                           Prevalence and diversity of avian haematozoa in three speciesof Australian passerine
-#> 6                                                                                A cluster of avian malaria cases in a kiwi management programme
-#>                                           journal               volume
-#> 1                  New Zealand Veterinary Journal           58:218-223
-#> 2                                    Parasitology          140:672-682
-#> 3 Ankara Universitesi Veteriner Fakultesi Dergisi           60:179-183
-#> 4                                    Parasitology        138:1843-1851
-#> 5                                             Emu          113:353-358
-#> 6                  New Zealand Veterinary Journal DOI:10.1080/00480169
-#>       study_type
-#> 1 Single species
-#> 2 Single species
-#> 3 Single species
-#> 4 Single species
-#> 5    Two Species
-#> 6     Veterinary
+morph <- extract_table("Morpho Species Summary")
+head(morph) # check it out
+#>   #no Lineage_Name         genus                   species
+#> 1   1     ACCFRA01 Leucocytozoon       Leucocytozoon toddi
+#> 2   2      ACCOP01 Leucocytozoon     Leucocytozoon mathisi
+#> 3   3       ACNI04 Leucocytozoon     Leucocytozoon mathisi
+#> 4   4      ALARV01  Haemoproteus Haemoproteus tartakovskyi
+#> 5   5      ALARV02  Haemoproteus Haemoproteus tartakovskyi
+#> 6   6      ALARV03  Haemoproteus Haemoproteus tartakovskyi
+#>           Reference_Name comment
+#> 1 Barraclough et al 2008        
+#> 2  Valkiunas et al 2010a        
+#> 3  Valkiunas et al 2010a        
+#> 4 Zehtindjiev et al 2012        
+#> 5 Zehtindjiev et al 2012        
+#> 6 Zehtindjiev et al 2012
 ```
 
 The `extract_table()` help file lists all nine tables you can download directly into `R`. Or you can specify `"all"` and get them all as a list.
@@ -107,3 +93,20 @@ all.seqs #check it out
 ```
 
 The `extract_alignment()` help file lists the names of the sequence alignments that the function understands.
+
+Taxonomic key for host species
+------------------------------
+
+The package includes a taxonomic key linking (nearly all) host species names from MalAvi with the species names used in the phylogenetic analysis found on <http://birdtree.org/>. The latter species names are in a column labeled `Jetz.species` and have an underscore between the genus and species as they would appear if you were to download trees from the website. The key is stored in a data object called `taxonomy` which can be called directly once the package is loaded.
+
+``` r
+## check out taxonomic host key
+head(taxonomy)
+#>              species       Jetz.species match
+#> 1 Nectarinia sperata Nectarinia_sperata   yes
+#> 2    Prinia inornata    Prinia_inornata   yes
+#> 3 Acrocephalus aedon Acrocephalus_aedon   yes
+#> 4   Emberiza elegans   Emberiza_elegans   yes
+#> 5   Emberiza pusilla   Emberiza_pusilla   yes
+#> 6        Parus major        Parus_major   yes
+```
