@@ -22,8 +22,10 @@ extract_table <- function(table = "Hosts and Sites Table"){
                   "http://mbio-serv2.mbioekol.lu.se/bcgi/malaviReport.cgi?report8=Database+Summary+Report")
   names(table.urls) <- table.names
   if(!(table %in% c(table.names, "all"))){
-    return(c(cat("Please choose one of the following table names: "),
-               cat(table.names, sep = ", "), cat(" or all")))
+    stop('Please choose one of the following table names:
+         "Hosts and Sites Table", "Table of References", "Grand Lineage Summary",
+         "Parasite Summary Per Host", "Table of Lineage Names", "Morpho Species Summary",
+         "Vector Data Table", "Other Genes Table", "Database Summary Report", or "all"')
   }
   if(table == table.names[1]){
     data.url <- read_html(table.urls[table]) %>% html_nodes("a") %>% html_attr("href")
