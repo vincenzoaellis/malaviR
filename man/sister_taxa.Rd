@@ -16,7 +16,7 @@ sister_taxa(tree, node)
 an object of class \code{phylo}.
 }
   \item{node}{
-node number (see details).
+node number (see details). Can be one or multiple nodes.
 }
 }
 \details{
