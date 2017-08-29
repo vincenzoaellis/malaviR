@@ -3,27 +3,32 @@
 malaviR
 =======
 
-The goal of this package is to be an R interface to the global avian haemosporidian database MalAvi (<http://mbio-serv2.mbioekol.lu.se/Malavi/>). The package includes functions for downloading data from the MalAvi website directly into your R environment and some basic utility functions for manipulating those data. You can also use malaviR to BLAST your haemosporidian DNA sequences against the MalAvi database programmatically, which should facilitate comparisons with MalAvi.
+This package is an `R` interface to the global avian haemosporidian database MalAvi (<http://mbio-serv2.mbioekol.lu.se/Malavi/>). The package includes functions for downloading data from the MalAvi website directly into your `R` environment and some basic utility functions for manipulating those data. Furthermore, you can use `malaviR` to BLAST your haemosporidian DNA sequences against the MalAvi database programmatically, which should facilitate comparisons with MalAvi.
 
 The package also includes a key for linking the host taxonomic classifications in MalAvi with the avian taxonomic classifications found on <http://birdtree.org/>.
 
 Installation
 ------------
 
-You can install malaviR from github with:
+You can install `malaviR` from github with:
 
 ``` r
 # install.packages("devtools")
 devtools::install_github("vincenzoaellis/malaviR")
 ```
 
-Download tables from MalAvi
----------------------------
-
-There are nine tables that can be downloaded from the MalAvi website summarizing the dataset. Here's how you would download the table linking morphological species to genetic lineages from the MalAvi database:
+Then you can load it in your `R` session with:
 
 ``` r
 library(malaviR)
+```
+
+Download tables from MalAvi
+---------------------------
+
+There are nine tables that can be downloaded from the MalAvi website that summarize the database. Here's how you would download the table linking morphological species to genetic lineages:
+
+``` r
 morph <- extract_table("Morpho Species Summary")
 head(morph) # check it out
 #>   #no Lineage_Name         genus                   species
@@ -47,7 +52,7 @@ The `extract_table()` help file lists all nine tables you can download directly 
 BLAST a sequence to MalAvi
 --------------------------
 
-You can BLAST your own sequences against the MalAvi database using the `blast_malavi()` function. Your input sequence just needs to be specified as a character string.
+You can BLAST your own sequences against the MalAvi database using the `blast_malavi()` function, which leverages the MalAvi website's already existing BLAST capabilities. Your input sequence just needs to be specified as a character string.
 
 ``` r
 ## define a sequence. This is the Plasmodium parasite ACAGR1
@@ -111,10 +116,12 @@ head(taxonomy)
 #> 6        Parus major        Parus_major   yes
 ```
 
+The `taxonomy` help file notes when the comparison was made (I will update it occasionally) and lists the multiple MalAvi host species that correspond to single host species in the phylogenetic analysis (there are several).
+
 Identifying sister lineages from a given node
 ---------------------------------------------
 
-Phylogenetic inference into the MalAvi lineages is difficult due to the limited sequence data available. Often, the best one can do is to study sister lineages in the phylogeny that are linked by well supported nodes. The function `sister_taxa()` gives a list of lineages on either side of a specific node in a phylogeny.
+Phylogenetic analysis of the MalAvi lineages is difficult at the moment due to the limited sequence data available for most lineages. Often, the best one can do is to study sister lineages in the phylogeny that are linked by well supported nodes. The function `sister_taxa()` gives a list of lineages on either side of a specific node in a phylogeny.
 
 ``` r
 ## simulate a phylogenetic tree with 10 taxa using the rtree() function in the ape package
@@ -122,41 +129,29 @@ library(ape)
 tree <- rtree(n=10)
 
 ## the node labels of the tree can then be examined (not run)
-#plot(tree)
-#nodelabels()
+plot(tree)
+nodelabels()
+```
+
+![](README-example%205-1.png)
+
+``` r
 
 ## the root of the tree has node label "11" and we can extract sister lineages from the root;
 ## the sister taxa are grouped into two clades with arbitrary labels of "1" and "2"
-(sis.tax.df <- sister_taxa(tree, 11))
+sis.tax.df <- sister_taxa(tree, 11)
+sis.tax.df # check it out
 #>    ancestral.node sister.clade taxa
-#> 1              11            1   t3
-#> 2              11            1   t2
+#> 1              11            1   t1
+#> 2              11            1   t5
 #> 3              11            1   t8
-#> 4              11            1  t10
-#> 5              11            1   t9
-#> 6              11            2   t7
-#> 7              11            2   t5
-#> 8              11            2   t6
-#> 9              11            2   t4
-#> 10             11            2   t1
+#> 4              11            1   t4
+#> 5              11            1   t3
+#> 6              11            1  t10
+#> 7              11            1   t7
+#> 8              11            1   t2
+#> 9              11            2   t6
+#> 10             11            2   t9
 ```
 
-This function can be used to identify lineages for further analysis or for visualization purposes. For example, you could highlight the clades of the two sets of sister lineages by plotting them in different colors.
-
-``` r
-## get edge labels (i.e., branch labels) for edges leading to sister clade 2 using the
-## which.edge() function from the ape package; we access the third column from the sis.tax.df
-## object which olds the taxa names for taxa from sister clade 2 and we convert the names to characters
-sis.clade2 <- which.edge(tree, as.character(sis.tax.df[sis.tax.df$sister.clade == 2, 3]))
-
-## assign a color to all the edges of the tree
-edge.color <- rep("gray45", dim(tree$edge)[1])
-
-## change that color for the edges corresponding to sister clade 2
-edge.color[sis.clade2] <- "red"
-
-## plot the tree
-plot(tree, edge.color = edge.color, edge.width = 2)
-```
-
-![](README-example%206-1.png)
+This function can be used to identify lineages for further analysis or for visualization purposes.
