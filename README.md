@@ -60,7 +60,6 @@ ACAGR1 <- "GCAACTGGTGCTTCATTTGTATTTATTTTAACTTATTTACATATTTTAAGAGGATTAAATTATTCATAT
 
 ## BLAST it against the MalAvi database and save the top five hits to a data frame
 hits <- blast_malavi(ACAGR1)
-#> Submitting with 'sequence'
 hits # check it out
 #>    Lineage Score Identities  Gaps    Strand Coverage Perfect.Match
 #> 1   ACAGR1   885    479/479 0/479 Plus/Plus      479           Yes
@@ -128,7 +127,7 @@ Phylogenetic analysis of the MalAvi lineages is difficult at the moment due to t
 library(ape)
 tree <- rtree(n=10)
 
-## the node labels of the tree can then be examined (not run)
+## the node labels of the tree can then be examined
 plot(tree)
 nodelabels()
 ```
@@ -142,16 +141,33 @@ nodelabels()
 sis.tax.df <- sister_taxa(tree, 11)
 sis.tax.df # check it out
 #>    ancestral.node sister.clade taxa
-#> 1              11            1   t1
-#> 2              11            1   t5
-#> 3              11            1   t8
-#> 4              11            1   t4
-#> 5              11            1   t3
-#> 6              11            1  t10
-#> 7              11            1   t7
-#> 8              11            1   t2
-#> 9              11            2   t6
-#> 10             11            2   t9
+#> 1              11            1   t8
+#> 2              11            1   t4
+#> 3              11            1   t6
+#> 4              11            1   t1
+#> 5              11            1   t2
+#> 6              11            1   t3
+#> 7              11            1   t9
+#> 8              11            2   t7
+#> 9              11            2   t5
+#> 10             11            2  t10
 ```
 
-This function can be used to identify lineages for further analysis or for visualization purposes.
+In general, this function can be used to identify lineages for further analysis or for visualization purposes. For analyses of MalAvi data in particular, you might want to identify all pairs of sister lineages in a phylogeny. This could be done with one line (after calling the `dplyr` package):
+
+``` r
+## load dplyr package
+library(dplyr)
+
+## identify all pairs of sister lineages in the phylogenetic tree
+sister_taxa(tree, 1:tree$Nnode + length(tree$tip.label)) %>% group_by(ancestral.node) %>% mutate(no.lins = length(unique(taxa))) %>% filter(no.lins == 2) %>% select(-no.lins) %>% as.data.frame
+#>   ancestral.node sister.clade taxa
+#> 1             13            1   t8
+#> 2             13            2   t4
+#> 3             16            1   t6
+#> 4             16            2   t1
+#> 5             17            1   t3
+#> 6             17            2   t9
+#> 7             19            1   t5
+#> 8             19            2  t10
+```

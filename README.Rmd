@@ -48,7 +48,7 @@ The `extract_table()` help file lists all nine tables you can download directly 
 
 You can BLAST your own sequences against the MalAvi database using the `blast_malavi()` function, which leverages the MalAvi website's already existing BLAST capabilities. Your input sequence just needs to be specified as a character string.  
 
-```{r example2}
+```{r example2, message=FALSE, warning=FALSE}
 ## define a sequence. This is the Plasmodium parasite ACAGR1
 ACAGR1 <- "GCAACTGGTGCTTCATTTGTATTTATTTTAACTTATTTACATATTTTAAGAGGATTAAATTATTCATATTCATATTTACCTTTATCATGGATATCTGGATTAATAATATTTTTAATATCTATAGTAACAGCTTTTATGGGTTACGTATTACCTTGGGGTCAAATGAGTTTCTGGGGTGCTACCGTAATAACTAATTTATTATATTTTATACCTGGACTAGTTTCATGGATATGTGGTGGATATCTTGTAAGTGACCCAACCTTAAAAAGATTCTTTGTACTACATTTTACATTTCCTTTTATAGCTTTATGTATTGTATTTATACATATATTCTTTCTACATTTACAAGGTAGCACAAATCCTTTAGGGTATGATACAGCTTTAAAAATACCCTTCTATCCAAATCTTTTAAGTCTTGATATTAAAGGATTTAATAATGTATTAGTATTATTTTTAGCACAAAGTTTATTTGGAATACT"
 
@@ -89,7 +89,7 @@ Phylogenetic analysis of the MalAvi lineages is difficult at the moment due to t
 library(ape)
 tree <- rtree(n=10)
 
-## the node labels of the tree can then be examined (not run)
+## the node labels of the tree can then be examined
 plot(tree)
 nodelabels()
 
@@ -99,5 +99,14 @@ sis.tax.df <- sister_taxa(tree, 11)
 sis.tax.df # check it out
 ```
 
-This function can be used to identify lineages for further analysis or for visualization purposes.
+In general, this function can be used to identify lineages for further analysis or for visualization purposes. For analyses of MalAvi data in particular, you might want to identify all pairs of sister lineages in a phylogeny. This could be done with one line (after calling the `dplyr` package):
+
+```{r example 5 part 2, message=FALSE, warning=FALSE}
+## load dplyr package
+library(dplyr)
+
+## identify all pairs of sister lineages in the phylogenetic tree
+sister_taxa(tree, 1:tree$Nnode + length(tree$tip.label)) %>% group_by(ancestral.node) %>% mutate(no.lins = length(unique(taxa))) %>% filter(no.lins == 2) %>% select(-no.lins) %>% as.data.frame
+```
+
 
