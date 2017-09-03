@@ -19,5 +19,7 @@ RoxygenNote: 6.0.1
 URL: https://github.com/vincenzoaellis/malaviR
 BugReports: https://github.com/vincenzoaellis/malaviR/issues
 Suggests: knitr,
-    rmarkdown
+    rmarkdown,
+    dplyr,
+    ggplot2
 VignetteBuilder: knitr
