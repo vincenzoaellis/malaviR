@@ -78,7 +78,7 @@ Using the `extract_alignment()` function, you can download all of the sequences 
 ## download all sequences
 all.seqs <- extract_alignment("all seqs")
 all.seqs #check it out
-#> 2771 DNA sequences in binary format stored in a matrix.
+#> 2825 DNA sequences in binary format stored in a matrix.
 #> 
 #> All sequences of same length: 479 
 #> 
@@ -97,6 +97,28 @@ all.seqs #check it out
 ```
 
 The `extract_alignment()` help file lists the names of the sequence alignments that the function understands.
+
+Clean lineage names from MalAvi sequence alignments
+---------------------------------------------------
+
+The lineage names in the MalAvi sequence alignments have been modified to include extra information and therefore do not match the lineage names in the rest of the database. The `clean_names()` function removes the extra information so that the sequence alignment lineage names match those in the rest of the database.
+
+For example, the lineage names in the alignment files look like this:
+
+``` r
+## lineage names are stored in the rownames of a DNAbin object
+six.names <- head(rownames(all.seqs))
+six.names
+#> [1] "H_ACAED01"  "P_ACAGR1"   "H_ACAGR2"   "H_ACATEN01" "L_ACCBRE01"
+#> [6] "L_ACCBRE02"
+```
+
+After cleaning those names, they look like this:
+
+``` r
+clean_names(six.names)
+#> [1] "ACAED01"  "ACAGR1"   "ACAGR2"   "ACATEN01" "ACCBRE01" "ACCBRE02"
+```
 
 Taxonomic key for host species
 ------------------------------
@@ -132,7 +154,7 @@ plot(tree)
 nodelabels()
 ```
 
-![](README-example%205-1.png)
+![](README-example%206a-1.png)
 
 ``` r
 
@@ -141,16 +163,16 @@ nodelabels()
 sis.tax.df <- sister_taxa(tree, 11)
 sis.tax.df # check it out
 #>    ancestral.node sister.clade taxa
-#> 1              11            1   t8
-#> 2              11            1   t4
-#> 3              11            1   t6
-#> 4              11            1   t1
-#> 5              11            1   t2
-#> 6              11            1   t3
-#> 7              11            1   t9
-#> 8              11            2   t7
-#> 9              11            2   t5
-#> 10             11            2  t10
+#> 1              11            1   t5
+#> 2              11            1   t7
+#> 3              11            1   t1
+#> 4              11            1  t10
+#> 5              11            1   t3
+#> 6              11            1   t6
+#> 7              11            1   t8
+#> 8              11            2   t2
+#> 9              11            2   t4
+#> 10             11            2   t9
 ```
 
 In general, this function can be used to identify lineages for further analysis or for visualization purposes. For analyses of MalAvi data in particular, you might want to identify all pairs of sister lineages in a phylogeny. This could be done with one line (after calling the `dplyr` package):
@@ -162,12 +184,10 @@ library(dplyr)
 ## identify all pairs of sister lineages in the phylogenetic tree
 sister_taxa(tree, 1:tree$Nnode + length(tree$tip.label)) %>% group_by(ancestral.node) %>% mutate(no.lins = length(unique(taxa))) %>% filter(no.lins == 2) %>% select(-no.lins) %>% as.data.frame
 #>   ancestral.node sister.clade taxa
-#> 1             13            1   t8
-#> 2             13            2   t4
-#> 3             16            1   t6
-#> 4             16            2   t1
-#> 5             17            1   t3
-#> 6             17            2   t9
-#> 7             19            1   t5
-#> 8             19            2  t10
+#> 1             15            1   t7
+#> 2             15            2   t1
+#> 3             17            1   t6
+#> 4             17            2   t8
+#> 5             19            1   t4
+#> 6             19            2   t9
 ```

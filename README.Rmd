@@ -69,11 +69,28 @@ all.seqs #check it out
 
 The `extract_alignment()` help file lists the names of the sequence alignments that the function understands.
 
+## Clean lineage names from MalAvi sequence alignments
+
+The lineage names in the MalAvi sequence alignments have been modified to include extra information and therefore do not match the lineage names in the rest of the database. The `clean_names()` function removes the extra information so that the sequence alignment lineage names match those in the rest of the database.
+
+For example, the lineage names in the alignment files look like this:
+
+```{r example 4a}
+## lineage names are stored in the rownames of a DNAbin object
+six.names <- head(rownames(all.seqs))
+six.names
+```
+
+After cleaning those names, they look like this:
+```{r example 4b}
+clean_names(six.names)
+```
+
 ## Taxonomic key for host species
 
 The package includes a taxonomic key linking (nearly all) host species names from MalAvi with the species names used in the phylogenetic analysis found on http://birdtree.org/. The latter species names are in a column labeled `Jetz.species` and have an underscore between the genus and species as they would appear if you were to download trees from the website. The key is stored in a data object called `taxonomy` which can be called directly once the package is loaded.
 
-```{r example 4}
+```{r example 5}
 ## check out taxonomic host key
 head(taxonomy)
 ```
@@ -84,7 +101,7 @@ The `taxonomy` help file notes when the comparison was made (I will update it oc
 
 Phylogenetic analysis of the MalAvi lineages is difficult at the moment due to the limited sequence data available for most lineages. Often, the best one can do is to study sister lineages in the phylogeny that are linked by well supported nodes. The function `sister_taxa()` gives a list of lineages on either side of a specific node in a phylogeny.
 
-```{r example 5}
+```{r example 6a}
 ## simulate a phylogenetic tree with 10 taxa using the rtree() function in the ape package
 library(ape)
 tree <- rtree(n=10)
@@ -101,7 +118,7 @@ sis.tax.df # check it out
 
 In general, this function can be used to identify lineages for further analysis or for visualization purposes. For analyses of MalAvi data in particular, you might want to identify all pairs of sister lineages in a phylogeny. This could be done with one line (after calling the `dplyr` package):
 
-```{r example 5 part 2, message=FALSE, warning=FALSE}
+```{r example 6b, message=FALSE, warning=FALSE}
 ## load dplyr package
 library(dplyr)
 
