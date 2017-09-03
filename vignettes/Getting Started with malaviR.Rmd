@@ -1,0 +1,95 @@
+---
+title: "Getting Started with malaviR"
+author: "Vincenzo A. Ellis"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with malaviR}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+The `malaviR` package is an `R` interface to [MalAvi](http://mbio-serv2.mbioekol.lu.se/Malavi/), the global avian haemosporidian database^[Bensch S, Hellgren O, and Perez-Tris J. 2009. MalAvi: a public database of malaria parasites and related haemosporidians in avian hosts based on mitochondrial cytochrome *b* lineages. Molecular Ecology Resources 9: 1353-1358.]. MalAvi stores data on host and geographic distributions, vectors, and morphology of avian haemosporidian parasite lineages. These lineages are defined by 479 bp of the cytochrome *b* gene. I wrote this package to make analyses of the data in MalAvi more reproducible and easier to implement.
+
+## Downloading data
+
+The MalAvi database is organized into nine tables and three DNA sequence alignments. You can download these data directly into your `R` environment with two functions: `extract_table()` and `extract_alignment()`. These functions take the name of the table of alignment file as inputs. A list of the table and alignment names and their associated functions can be found in Table 1.
+
+&nbsp;
+
+| Table/Alignment Name              | `malaviR` function     | Data description     |
+| :-------------------:     | :-----------:     | :------------------------------------: |
+| Hosts and Sites Table     | `extract_table()` | Table listing host species a parasite lineage has been found infecting and the geographic location of the infection. Also taxonomic information on hosts and parasites, reference for record, and in a few cases prevalence. |
+| Table of References       | `extract_table()` | Table of references and type of study. |
+| Grand Lineage Summary     | `extract_table()` | Summary of lineages including where they have been found, the number of hosts they infect, Genbank accession numbers, etc. |
+| Parasite Summary Per Host | `extract_table()` | Number of parasite lineages infecting each host species in the database. |
+| Table of Lineage Names    | `extract_table()` | Table of lineage names, alternative names, Genbank accession numbers, and references. |
+| Morpho Species Summary    | `extract_table()` | Table linking lineages to morphospecies. |
+| Vector Data Table         | `extract_table()` | Table linking lineages to putative vector species, including methods of detection, location the vectors were sampled, and in a few cases prevalence. |
+| Other Genes Table         | `extract_table()` | Some lineages have had other genes sequenced. The Genbank accession numbers and references for these genes are listed in this table. |
+| Database Summary Report   | `extract_table()` | A one line report of number of lineages, hosts, references and other records in the database. |
+| all seqs                  | `extract_alignment()` | An alignment file with cytochrome *b* sequences, regardless of length, associated with all lineages in the database. |
+| long seqs                 | `extract_alignment()` | An alignment file with only cytochrome *b* sequences that have all or nearly all 479 bp sequenced. |
+| morpho seqs               | `extract_alignment()` | An alignment file with cytochrome *b* sequences of lineages that are associated with morphospecies. |
+
+Table: **Table 1.** The data tables and sequence alignments available from MalAvi and the associated functions that can be used to download them. The table or alignment name can be written (inside quotation marks) as an argument inside the parentheses of the appropriate function. 
+&nbsp;
+
+Typically, you will want to save the data you download as an `R` object so that they can be manipulated later. For example, say we want to get a list of the number of hosts each parasite lineage in the database has been found infecting. We start by downloading the "Grand Lineage Summary" table and saving it to an object which I will call `lin.sum`.
+
+```{r}
+library(malaviR) # make sure malaviR is loaded before you begin
+lin.sum <- extract_table("Grand Lineage Summary")
+```
+
+This table has a lot of information we are not necessarily interested in. Check out the first six rows of data with the `head()` function.
+
+```{r}
+head(lin.sum)
+```
+
+We can trim that down to two columns, `Lineage_Name` and `hosts`. I will do this with the `dplyr` package, specifically its `select()` function. I will also use piping (`%>%`). This is a simple subsetting problem, but it's best to already start with `dplyr` because it will make more complicated problems a lot more manageable. Start by loading `dplyr` (if you have not installed it yet, then type `install.packages("dplyr")` first).
+
+```{r, warning=FALSE, message=FALSE}
+library(dplyr)
+```
+
+Then subset the data. Notice I save this subset to a new object called `lin.sum.n`.
+
+```{r}
+lin.sum.n <- lin.sum %>% select(Lineage_Name, hosts)
+```
+
+What if you want to know how many studies have reported each lineage in the database? For this we want to download the "Hosts and Sites Table" and do some more complicated subsetting. I will save the resulting subsetted data to a new object called `lins.refs`.
+
+```{r, warning=FALSE, message=FALSE}
+lins <- extract_table("Hosts and Sites Table")
+lins.refs <- lins %>% group_by(Lineage_Name) %>% 
+  summarise(Ref.no = length(unique(Reference_Name))) %>% as.data.frame()
+```
+
+Now we could join these data on references with the data on number of hosts. I will save this as a new object called `lins.f`.
+
+```{r}
+lins.f <- left_join(lins.refs, lin.sum.n, by = "Lineage_Name")
+```
+
+This new object (a `data.frame`) has both variables we pulled from MalAvi.
+
+```{r}
+head(lins.f)
+```
+
+We can plot these data to see how well they are correlated.
+
+```{r, message=FALSE, warning=FALSE}
+library(ggplot2) # package for making nice graphics
+ggplot(lins.f, aes(x = Ref.no, y = hosts)) + geom_point()
+```
+
+A keen observer will notice that `lins.f` and `lins.refs` have fewer rows than `lin.sum.n`. This because some parasites are in MalAvi without an associated reference. Being able to access MalAvi programmatically allows one to quickly pick up these inconsistencies. 
+
+&nbps;
+
+
+**...to be continued**
