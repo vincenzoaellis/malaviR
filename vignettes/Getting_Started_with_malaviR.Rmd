@@ -51,7 +51,7 @@ lin.sum <- extract_table("Grand Lineage Summary")
 
 &nbsp;
 
-This table has a lot of information we are not necessarily interested in. If you want to see it all, run `head(lin.sum)`. We can trim that down to two columns, `Lineage_Name` and `hosts`. I will do this with the `dplyr` package, specifically its `select()` function. I will also use piping (`%>%`). This is a simple subsetting problem, but it's best to already start with `dplyr` because it will make more complicated problems a lot more manageable. Start by loading `dplyr` (if you have not installed it yet, then type `install.packages("dplyr")` first).
+This table has a lot of information we are not necessarily interested in. If you want to see it all, run `head(lin.sum)`. We can trim that down to three columns, `Lineage_Name`, `genus`, and `hosts`. I will do this with the `dplyr` package, specifically its `select()` function. I will also use piping (`%>%`). This is a simple subsetting problem, but it's best to already start with `dplyr` because it will make more complicated problems a lot more manageable. Start by loading `dplyr` (if you have not installed it yet, then type `install.packages("dplyr")` first).
 
 ```{r, warning=FALSE, message=FALSE}
 library(dplyr)
@@ -62,12 +62,12 @@ library(dplyr)
 Then subset the data. Notice I save this subset to a new object called `lin.sum.n`.
 
 ```{r}
-lin.sum.n <- lin.sum %>% select(Lineage_Name, hosts)
+lin.sum.n <- lin.sum %>% select(Lineage_Name, genus, hosts)
 ```
 
 &nbsp;
 
-What if you want to know how many studies have reported each lineage in the database? For this we want to download the "Hosts and Sites Table" and do some more complicated subsetting. I will save the resulting subsetted data to a new object called `lins.refs`.
+What if you want to know how many studies have reported each lineage in the database? For this we want to download the "Hosts and Sites Table" and do some slightly more complicated subsetting. I will save the resulting subsetted data to a new object called `lins.refs`.
 
 ```{r, warning=FALSE, message=FALSE}
 lins <- extract_table("Hosts and Sites Table")
@@ -85,7 +85,7 @@ lins.f <- left_join(lins.refs, lin.sum.n, by = "Lineage_Name")
 
 &nbsp;
 
-This new object has both variables.
+This new object has both sets of variables.
 
 ```{r}
 head(lins.f)
@@ -93,11 +93,11 @@ head(lins.f)
 
 &nbsp;
 
-We can plot these data to see how well they are correlated.
+We can plot `Ref.no` against `hosts` to see how well they are correlated. We will log these values before plotting and add a little jitter to the points to reveal overplotting.
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, fig.width=7, fig.height=6}
 library(ggplot2) # package for making nice graphics
-ggplot(lins.f, aes(x = Ref.no, y = hosts)) + geom_point()
+ggplot(lins.f, aes(x = log(Ref.no), y = log(hosts))) + geom_point(shape = 1, size = 2, position = position_jitter(0.1, 0.1)) + xlab("Log references per lineage") + ylab("Log hosts per lineage") + facet_wrap(~genus) + theme_bw(base_size = 14) + theme(strip.text = element_text(face = "italic"))
 ```
 
 &nbsp;
@@ -107,4 +107,4 @@ A keen observer will notice that `lins.f` and `lins.refs` have fewer rows than `
 &nbsp;
 
 
-##...to be continued
+## To be continued...
