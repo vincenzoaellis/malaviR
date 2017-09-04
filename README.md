@@ -14,7 +14,7 @@ You can install `malaviR` from github with:
 
 ``` r
 # install.packages("devtools")
-devtools::install_github("vincenzoaellis/malaviR")
+devtools::install_github("vincenzoaellis/malaviR", build_vignettes = TRUE)
 ```
 
 Then you can load it in your `R` session with:
@@ -22,6 +22,14 @@ Then you can load it in your `R` session with:
 ``` r
 library(malaviR)
 ```
+
+The tutorial is accessible by calling the package vignette:
+
+``` r
+browseVignettes("malaviR")
+```
+
+This will open a web browser window. Click the "HTML" link next to the tutorial name (`Getting_Started_with_malaviR`) to see the tutorial.
 
 Download tables from MalAvi
 ---------------------------
@@ -164,15 +172,15 @@ sis.tax.df <- sister_taxa(tree, 11)
 sis.tax.df # check it out
 #>    ancestral.node sister.clade taxa
 #> 1              11            1   t5
-#> 2              11            1   t7
-#> 3              11            1   t1
-#> 4              11            1  t10
-#> 5              11            1   t3
-#> 6              11            1   t6
-#> 7              11            1   t8
-#> 8              11            2   t2
-#> 9              11            2   t4
-#> 10             11            2   t9
+#> 2              11            2   t7
+#> 3              11            2   t2
+#> 4              11            2  t10
+#> 5              11            2   t1
+#> 6              11            2   t4
+#> 7              11            2   t9
+#> 8              11            2   t6
+#> 9              11            2   t8
+#> 10             11            2   t3
 ```
 
 In general, this function can be used to identify lineages for further analysis or for visualization purposes. For analyses of MalAvi data in particular, you might want to identify all pairs of sister lineages in a phylogeny. This could be done with one line (after calling the `dplyr` package):
@@ -184,10 +192,10 @@ library(dplyr)
 ## identify all pairs of sister lineages in the phylogenetic tree
 sister_taxa(tree, 1:tree$Nnode + length(tree$tip.label)) %>% group_by(ancestral.node) %>% mutate(no.lins = length(unique(taxa))) %>% filter(no.lins == 2) %>% select(-no.lins) %>% as.data.frame
 #>   ancestral.node sister.clade taxa
-#> 1             15            1   t7
-#> 2             15            2   t1
-#> 3             17            1   t6
-#> 4             17            2   t8
-#> 5             19            1   t4
-#> 6             19            2   t9
+#> 1             14            1   t7
+#> 2             14            2   t2
+#> 3             17            1   t1
+#> 4             17            2   t4
+#> 5             19            1   t8
+#> 6             19            2   t3
 ```

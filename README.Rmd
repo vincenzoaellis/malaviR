@@ -24,7 +24,7 @@ You can install `malaviR` from github with:
 
 ```{r gh-installation, eval = FALSE}
 # install.packages("devtools")
-devtools::install_github("vincenzoaellis/malaviR")
+devtools::install_github("vincenzoaellis/malaviR", build_vignettes = TRUE)
 ```
 
 Then you can load it in your `R` session with:
@@ -32,6 +32,12 @@ Then you can load it in your `R` session with:
 library(malaviR)
 ```
 
+The tutorial is accessible by calling the package vignette:
+```{r, eval=FALSE}
+browseVignettes("malaviR")
+```
+
+This will open a web browser window. Click the "HTML" link next to the tutorial name (`Getting_Started_with_malaviR`) to see the tutorial.
 
 ## Download tables from MalAvi
 
