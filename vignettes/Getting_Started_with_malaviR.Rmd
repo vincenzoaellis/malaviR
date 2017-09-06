@@ -15,7 +15,7 @@ The `malaviR` package is an `R` interface to [MalAvi](http://mbio-serv2.mbioekol
 
 ## Downloading data
 
-The MalAvi database is organized into nine tables and three DNA sequence alignments. You can download these data directly into your `R` environment with two functions: `extract_table()` and `extract_alignment()`. These functions take the name of the table of alignment file as inputs. A list of the table and alignment names and their associated functions can be found in Table 1.
+The MalAvi database is organized into nine data tables and three DNA sequence alignments. You can download these data directly into your `R` environment with two functions: `extract_table()` and `extract_alignment()`. These functions take the name of the table or alignment file as inputs (in quotation marks). A list of the table and alignment names and their associated functions can be found in Table 1.
 
 &nbsp;
 
@@ -36,7 +36,7 @@ The MalAvi database is organized into nine tables and three DNA sequence alignme
 | long seqs                 | `extract_alignment()` | An alignment file with only cytochrome *b* sequences that have all or nearly all 479 bp sequenced. |
 | morpho seqs               | `extract_alignment()` | An alignment file with cytochrome *b* sequences of lineages that are associated with morphospecies. |
 
-Table: **Table 1.** The data tables and sequence alignments available from MalAvi and the associated functions that can be used to download them. The table or alignment name can be written (inside quotation marks) as an argument inside the parentheses of the appropriate function. 
+Table: **Table 1.** The data tables and sequence alignments available from MalAvi and the associated functions that can be used to download them. The table or alignment name can be written (in quotation marks) as an argument inside the parentheses of the appropriate function. 
 
 &nbsp;
 
@@ -49,25 +49,22 @@ library(malaviR) # make sure malaviR is loaded before you begin
 lin.sum <- extract_table("Grand Lineage Summary")
 ```
 
-&nbsp;
 
-This table has a lot of information we are not necessarily interested in. If you want to see it all, run `head(lin.sum)`. We can trim that down to three columns, `Lineage_Name`, `genus`, and `hosts`. I will do this with the `dplyr` package, specifically its `select()` function. I will also use piping (`%>%`). This is a simple subsetting problem, but it's best to already start with `dplyr` because it will make more complicated problems a lot more manageable. Start by loading `dplyr` (if you have not installed it yet, then type `install.packages("dplyr")` first).
+This table has a lot of information we are not necessarily interested in. If you want to see it all, run `head(lin.sum)`. We can trim the table down to three columns, `Lineage_Name`, `genus`, and `hosts`. I will do this with the `dplyr` package.Start by loading `dplyr` (if you have not installed it yet, then run `install.packages("dplyr")` first).
 
 ```{r, warning=FALSE, message=FALSE}
 library(dplyr)
 ```
 
-&nbsp;
 
-Then subset the data. Notice I save this subset to a new object called `lin.sum.n`.
+Then subset the data to the three columns I mentioned. Notice I save this subset to a new object called `lin.sum.n`.
 
 ```{r}
 lin.sum.n <- lin.sum %>% select(Lineage_Name, genus, hosts)
 ```
 
-&nbsp;
 
-What if you want to know how many studies have reported each lineage in the database? For this we want to download the "Hosts and Sites Table" and do some slightly more complicated subsetting. I will save the resulting subsetted data to a new object called `lins.refs`.
+What if you want to know how many studies have reported each lineage in the database since that could be an appropriate measure of sampling effort? For this we want to download the "Hosts and Sites Table" and do some more subsetting. I will save the resulting data to a new object called `lins.refs`.
 
 ```{r, warning=FALSE, message=FALSE}
 lins <- extract_table("Hosts and Sites Table")
@@ -75,15 +72,13 @@ lins.refs <- lins %>% group_by(Lineage_Name) %>%
   summarise(Ref.no = length(unique(Reference_Name))) %>% as.data.frame()
 ```
 
-&nbsp;
 
-Now we could join these data on references with the data on number of hosts. I will save this as a new object called `lins.f`.
+Now we can join these data on references (`lins.refs`) with the data on number of host species (`lin.sum.n`) and look for an effect of sampling on the number of host species a parasite has been recorded infecting. I will save these joined data as a new object called `lins.f`.
 
 ```{r}
 lins.f <- left_join(lins.refs, lin.sum.n, by = "Lineage_Name")
 ```
 
-&nbsp;
 
 This new object has both sets of variables.
 
@@ -91,20 +86,146 @@ This new object has both sets of variables.
 head(lins.f)
 ```
 
-&nbsp;
 
-We can plot `Ref.no` against `hosts` to see how well they are correlated. We will log these values before plotting and add a little jitter to the points to reveal overplotting.
+We can now plot `Ref.no` against `hosts` to see how well they are correlated, or the strength of the sampling effect. We will log these values before plotting and add a little jitter to the points to reveal their density.
 
 ```{r, message=FALSE, warning=FALSE, fig.width=7, fig.height=6}
 library(ggplot2) # package for making nice graphics
 ggplot(lins.f, aes(x = log(Ref.no), y = log(hosts))) + geom_point(shape = 1, size = 2, position = position_jitter(0.1, 0.1)) + xlab("Log references per lineage") + ylab("Log hosts per lineage") + facet_wrap(~genus) + theme_bw(base_size = 14) + theme(strip.text = element_text(face = "italic"))
 ```
 
-&nbsp;
-
-A keen observer will notice that `lins.f` and `lins.refs` have fewer rows than `lin.sum.n`. This because some parasites are in MalAvi without an associated reference. Being able to access MalAvi programmatically allows one to quickly pick up these inconsistencies. 
+Notice the strong relationships. Clearly there is a sampling effect that must be taken into account when working with these data. A keen observer will also notice that `lins.f` and `lins.refs` have fewer rows than `lin.sum.n`. This because some parasites are in MalAvi without an associated reference. Being able to access MalAvi programmatically allows one to quickly pick up these inconsistencies. Furthermore, you see that not all parasites have necessarily been assigned to a genus. 
 
 &nbsp;
 
+That was an example of downloading and manipulating data tables from MalAvi. Now we will run through an example of downloading a parasite lineage sequence alignment. We will download the "long seqs" file which only has sequences of complete or nearly complete length (479 bp of cytochrome *b*). We will then check the number of host species of the lineages in the alignment, remembering that this is a subset of the overall database. 
 
-## To be continued...
+First, download the sequence alignment. I will save it to an object called `seqs`.
+
+```{r}
+seqs <- extract_alignment("long seqs")
+```
+
+Notice that the class of the object `seqs` is `DNAbin`.
+
+```{r}
+class(seqs)
+```
+
+This is a class from the `R` package `ape`, which `malaviR` calls internally, but will not load in your `R` session automatically (by design). So to get all of the nice features available in `ape` for dealing with sequence alignments we can load the `ape` package.
+
+```{r, message=FALSE, warning=FALSE}
+library(ape)
+```
+
+If we just run the name of the object, we will get  a nice summary.
+
+```{r}
+seqs
+```
+
+We see that there are `r dim(seqs)[1]` sequences (lineages) and we get the first six sequence labels. `DNAbin` objects are essentially matrices with the sequence data stored in a binary format^[Paradis E. 2012. *Analysis of phylogenetics and evolution with R*. 2nd edition. Springer, New York.]. Since it's in matrix form, we can access sequences in the standard way. For example, let's save the first 5 sequences in the alignment to a new object called `five.seqs` and then we can plot a graphical representation of the alignment.
+
+```{r, fig.width=7, fig.height=6}
+five.seqs <- seqs[1:5,]
+image.DNAbin(five.seqs)
+```
+
+Obviously that's not very useful for visualizing differences, but the point is just to show subsetting and that the object can be used with the available tools in `ape`. Now we will move on to selecting the number of hosts that each of these lineages infects. First we need the lineage names, which I will save to a new object called `lin.names`. Notice that the lineage names (or "labels" as they are called in `ape`) are stored as `rownames` in the `DNAbin` object.
+
+```{r}
+lin.names <- rownames(seqs)
+```
+
+If you check out these names (or perhaps you already noticed; if not run `head(lin.names)`) you will see that they do not match up with the names in the MalAvi data tables; they have extra information attached to the beginning and end. We can clean these names with the `clean_names()` function and save the cleaned names to a new object `lin.names.cl`.
+
+```{r}
+lin.names.cl <- clean_names(lin.names)
+```
+
+Check out the first few with `head(lin.names.cl)`. Now we can subset the host numbers data, which we called `lin.sum.n` to only include these lineages. I will save the resulting data to a new object called `lin.sum.n2`.
+
+```{r}
+lin.sum.n2 <- lin.sum.n %>% filter(Lineage_Name %in% lin.names.cl)
+```
+
+And there you have it. This new dataset has `r dim(lin.sum.n)[1]-dim(lin.sum.n2)[1]` fewer parasite lineages than the full dataset.
+
+&nbsp;
+
+## BLASTing sequences to MalAvi
+
+If you have sequenced infections yourself and would like to compare them to MalAvi, you can do that using the BLAST algorithm. One great thing about MalAvi is that it has this capability available on its website^[http://mbio-serv2.mbioekol.lu.se/Malavi/blast.html]. However, you have to submit your sequences one at a time by hand and that can be quite slow. Moreover, the results are in the form of a pairwise alignment, so you may have to do a lot of copying and pasting to extract the data you want.  
+
+The `malaviR` package has a function called `blast_malavi()` which will BLAST your sequences against the MalAvi database using the MalAvi website itself. This allows you to BLAST every sequence you have in one automated step. Futhermore, `blast_malavi()` parses the BLAST output, leaving you with a useful dataset that requires no copying and pasting.  
+
+For example, let's start with a sequence from the MalAvi database, "ACAGR1". I will define the sequence manually, but presumably you will load your sequences into `R` as a fasta file^[Using the `ape` package, this could be done with `your_seq_obj <- read.dna("your_fasta_file.fasta", format = "fasta")`]. Then I will save the output to an object called `blast.out`.
+
+```{r, message=FALSE, warning=FALSE}
+## create the sequence
+ACAGR1 <- "GCAACTGGTGCTTCATTTGTATTTATTTTAACTTATTTACATATTTTAAGAGGATTAAATTATTCATATTCATATTTACCTTTATCATGGATATCTGGATTAATAATATTTTTAATATCTATAGTAACAGCTTTTATGGGTTACGTATTACCTTGGGGTCAAATGAGTTTCTGGGGTGCTACCGTAATAACTAATTTATTATATTTTATACCTGGACTAGTTTCATGGATATGTGGTGGATATCTTGTAAGTGACCCAACCTTAAAAAGATTCTTTGTACTACATTTTACATTTCCTTTTATAGCTTTATGTATTGTATTTATACATATATTCTTTCTACATTTACAAGGTAGCACAAATCCTTTAGGGTATGATACAGCTTTAAAAATACCCTTCTATCCAAATCTTTTAAGTCTTGATATTAAAGGATTTAATAATGTATTAGTATTATTTTTAGCACAAAGTTTATTTGGAATACT"
+
+## blast against MalAvi
+blast.out <- blast_malavi(ACAGR1, hits = 7)
+```
+
+If you examine the object (run `blast.out`), you will see the top seven lineages hits against `ACAGR1` and that it is a perfect match to itself, as expected. We can still see the pairwise alignment output, unparsed by setting the `print.alignments` argument equal to `TRUE`.
+
+```{r, message=FALSE, warning=FALSE}
+blast_malavi(ACAGR1, hits = 2, print.alignments = TRUE)
+```
+
+The `blast_malavi()` function takes one sequence at a time, but we can easily use it to loop over a sequence alignment using the `lapply()` function. As an example we can take the first 10 lineages from the `seqs` object we created before and BLAST them against MalAvi. We first have to save the sequences as vectors of class `character`, which I will call `seqs.10`.
+
+```{r, message=FALSE, warning=FALSE}
+seqs.10 <- sapply(seqs[1:10, ], paste, collapse = "")
+```
+
+That created a list of 10 character vectors, each named with their sequence name. Now we can BLAST each of them against MalAvi and retain the top two hits. I will save that to an object called `seqs.blast`.
+
+```{r, message=FALSE, warning=FALSE}
+seqs.blast <- lapply(seqs.10, function(x) blast_malavi(x, hits = 2))
+```
+
+That also created a list of 10 elements, this time each element is a two row data frame. To finish this up, we can bind these elements into a single data frame and add a new variable with the original sequence names. I will call this new and final data frame, `seqs.blast.n`.
+
+```{r}
+seqs.blast.n <- do.call("rbind", seqs.blast)
+seqs.blast.n$original_seq_name <- rep(names(seqs.blast), each = 2)
+rownames(seqs.blast.n) <- 1:dim(seqs.blast.n)[1]
+```
+
+Now you can check it out and see what you have created.
+
+```{r}
+seqs.blast.n
+```
+
+&nbsp;
+
+## Futher uses
+
+The previous examples sum up the main uses of `malaviR`. However, there are two other things worth mentioning. One is the function `sister_taxa()`. This can be used to identify sister lineages descending from a given node in a phylogeny. This is important from the MalAvi dataset, because often you are restricted to working on pairs of sister lineages from well supported nodes in a phylogeny. To demonstrate how this works, we can simulate a phylogenetic tree using the `ape` package and then identify the sister lineages with the `sister_taxa()` function and some subsetting tools from `dplyr`.
+
+```{r, fig.width=7, fig.height=6}
+## simulate a phylogenetic tree with 10 taxa using the rtree() function in the ape package
+tree <- rtree(n=10)
+
+## the node labels of the tree can then be examined
+plot(tree)
+nodelabels()
+```
+
+Now we will subset the sister lineages.
+
+```{r}
+sister_taxa(tree, 1:tree$Nnode + length(tree$tip.label)) %>% group_by(ancestral.node) %>% mutate(no.lins = length(unique(taxa))) %>% filter(no.lins == 2) %>% select(-no.lins) %>% as.data.frame
+```
+
+The last thing to mention is that sometimes you might want to utilize phylogenetic information of the hosts in MalAvi for an analysis. One common place to download phylogenetic relationships of birds from is the phylogenetic analysis found on http://birdtree.org/^[Jetz W, Thomas GH, Joy JB, Hartmann K, and Mooers AO. 2012. The global diversity of birds in space and time. Nature 491: 444-448.]. However, the taxonomy of hosts in MalAvi does not completely match the taxonomy from those phylogenies. To deal with this, the `malaviR` package has a data object called `taxonomy` which provides a key linking the two datasets. I will update this periodically. You can examine the key by calling the object.
+
+```{r}
+head(taxonomy)
+```
+
+The help file (run `?taxonomy`) lists when the last update was made and any inconsistencies between the datasets. For example, some of the species in the bird phylogenies correspond to multiple species in the MalAvi dataset.
