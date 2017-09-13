@@ -73,7 +73,7 @@ all.seqs <- extract_alignment("all seqs")
 all.seqs #check it out
 ```
 
-The `extract_alignment()` help file lists the names of the sequence alignments that the function understands.
+The `extract_alignment()` help file lists the names of the sequence alignments that the function understands. You can also identify and remove repeated haplotypes (several typically exist due to ambiguous base pairs) in the alignments with the `clean_alignment()` function.
 
 ## Clean lineage names from MalAvi sequence alignments
 

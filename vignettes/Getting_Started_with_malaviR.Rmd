@@ -112,7 +112,7 @@ Notice that the class of the object `seqs` is `DNAbin`.
 class(seqs)
 ```
 
-This is a class from the `R` package `ape`, which `malaviR` calls internally, but will not load in your `R` session automatically (by design). So to get all of the nice features available in `ape` for dealing with sequence alignments we can load the `ape` package.
+This is a class from the `R` package `ape`, which `malaviR` calls internally, but will not load in your `R` session automatically. So to get all of the nice features available in `ape` for dealing with sequence alignments we can load the `ape` package.
 
 ```{r, message=FALSE, warning=FALSE}
 library(ape)
@@ -150,6 +150,32 @@ lin.sum.n2 <- lin.sum.n %>% filter(Lineage_Name %in% lin.names.cl)
 ```
 
 And there you have it. This new dataset has `r dim(lin.sum.n)[1]-dim(lin.sum.n2)[1]` fewer parasite lineages than the full dataset.
+
+&nbsp;
+
+One more thing to point out is that some of the lineages in MalAvi differ only by one or more ambiguous base pairs (e.g., an "N") and therefore can be considered repeated haplotypes. These repeated haplotypes can add ambiguity to an analysis because you don't know if they are one or more than one lineage. The `clean_alignment()` function will randomly choose one representative lineage for each repeated haplotype in a sequence alignment and then remove the other repeated lineages from the alignment. For example we can clean the `seqs` object and name the resulting object `cleand.seqs`.
+
+```{r, message=FALSE, warning=FALSE}
+cleaned.seqs <- clean_alignment(seqs)
+```
+
+The warning message about attributes can be ignored. The `cleaned.seqs` object is actually a list that includes the cleaned alignment, which can be accessed as follows:
+
+```{r}
+cleaned.seqs$alignment_clean
+```
+
+And it also includes a list of the lineages (sequence names) associated with each repeated haplotype and the randomly selected representative lineages from each haplotype.
+
+```{r}
+## lineages associated with repeated haplotypes
+cleaned.seqs$repeated_haplotypes
+
+## randomly selected lineages
+cleaned.seqs$selected_lineages
+```
+
+See the help file (run `?clean_alignment`) to see more available options.
 
 &nbsp;
 

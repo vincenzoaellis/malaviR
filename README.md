@@ -104,7 +104,7 @@ all.seqs #check it out
 #> 0.294 0.133 0.135 0.438
 ```
 
-The `extract_alignment()` help file lists the names of the sequence alignments that the function understands.
+The `extract_alignment()` help file lists the names of the sequence alignments that the function understands. You can also identify and remove repeated haplotypes (several typically exist due to ambiguous base pairs) in the alignments with the `clean_alignment()` function.
 
 Clean lineage names from MalAvi sequence alignments
 ---------------------------------------------------
@@ -171,16 +171,16 @@ nodelabels()
 sis.tax.df <- sister_taxa(tree, 11)
 sis.tax.df # check it out
 #>    ancestral.node sister.clade taxa
-#> 1              11            1   t5
-#> 2              11            2   t7
-#> 3              11            2   t2
-#> 4              11            2  t10
-#> 5              11            2   t1
-#> 6              11            2   t4
-#> 7              11            2   t9
-#> 8              11            2   t6
-#> 9              11            2   t8
-#> 10             11            2   t3
+#> 1              11            1   t7
+#> 2              11            1   t6
+#> 3              11            1   t9
+#> 4              11            1   t5
+#> 5              11            1   t3
+#> 6              11            1  t10
+#> 7              11            2   t8
+#> 8              11            2   t2
+#> 9              11            2   t1
+#> 10             11            2   t4
 ```
 
 In general, this function can be used to identify lineages for further analysis or for visualization purposes. For analyses of MalAvi data in particular, you might want to identify all pairs of sister lineages in a phylogeny. This could be done with one line (after calling the `dplyr` package):
@@ -192,10 +192,10 @@ library(dplyr)
 ## identify all pairs of sister lineages in the phylogenetic tree
 sister_taxa(tree, 1:tree$Nnode + length(tree$tip.label)) %>% group_by(ancestral.node) %>% mutate(no.lins = length(unique(taxa))) %>% filter(no.lins == 2) %>% select(-no.lins) %>% as.data.frame
 #>   ancestral.node sister.clade taxa
-#> 1             14            1   t7
-#> 2             14            2   t2
-#> 3             17            1   t1
-#> 4             17            2   t4
-#> 5             19            1   t8
-#> 6             19            2   t3
+#> 1             15            1   t6
+#> 2             15            2   t9
+#> 3             16            1   t3
+#> 4             16            2  t10
+#> 5             19            1   t2
+#> 6             19            2   t1
 ```
