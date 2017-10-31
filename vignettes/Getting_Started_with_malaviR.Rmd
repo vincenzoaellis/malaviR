@@ -1,6 +1,5 @@
 ---
 title: "Getting Started with malaviR"
-author: "Vincenzo A. Ellis"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
@@ -60,7 +59,8 @@ library(dplyr)
 Then subset the data to the three columns I mentioned. Notice I save this subset to a new object called `lin.sum.n`.
 
 ```{r}
-lin.sum.n <- lin.sum %>% select(Lineage_Name, genus, hosts)
+lin.sum.n <- lin.sum %>% 
+  select(Lineage_Name, genus, hosts)
 ```
 
 
@@ -68,8 +68,10 @@ What if you want to know how many studies have reported each lineage in the data
 
 ```{r, warning=FALSE, message=FALSE}
 lins <- extract_table("Hosts and Sites Table")
-lins.refs <- lins %>% group_by(Lineage_Name) %>% 
-  summarise(Ref.no = length(unique(Reference_Name))) %>% as.data.frame()
+lins.refs <- lins %>% 
+  group_by(Lineage_Name) %>% 
+  summarise(Ref.no = length(unique(Reference_Name))) %>% 
+  as.data.frame()
 ```
 
 
@@ -146,7 +148,8 @@ lin.names.cl <- clean_names(lin.names)
 Check out the first few with `head(lin.names.cl)`. Now we can subset the host numbers data, which we called `lin.sum.n` to only include these lineages. I will save the resulting data to a new object called `lin.sum.n2`.
 
 ```{r}
-lin.sum.n2 <- lin.sum.n %>% filter(Lineage_Name %in% lin.names.cl)
+lin.sum.n2 <- lin.sum.n %>% 
+  filter(Lineage_Name %in% lin.names.cl)
 ```
 
 And there you have it. This new dataset has `r dim(lin.sum.n)[1]-dim(lin.sum.n2)[1]` fewer parasite lineages than the full dataset.
@@ -245,7 +248,12 @@ nodelabels()
 Now we will subset the sister lineages.
 
 ```{r}
-sister_taxa(tree, 1:tree$Nnode + length(tree$tip.label)) %>% group_by(ancestral.node) %>% mutate(no.lins = length(unique(taxa))) %>% filter(no.lins == 2) %>% select(-no.lins) %>% as.data.frame
+sister_taxa(tree, 1:tree$Nnode + length(tree$tip.label)) %>% 
+  group_by(ancestral.node) %>% 
+  mutate(no.lins = length(unique(taxa))) %>% 
+  filter(no.lins == 2) %>% 
+  select(-no.lins) %>% 
+  as.data.frame
 ```
 
 The last thing to mention is that sometimes you might want to utilize phylogenetic information of the hosts in MalAvi for an analysis. One common place to download phylogenetic relationships of birds from is the phylogenetic analysis found on http://birdtree.org/^[Jetz W, Thomas GH, Joy JB, Hartmann K, and Mooers AO. 2012. The global diversity of birds in space and time. Nature 491: 444-448.]. However, the taxonomy of hosts in MalAvi does not completely match the taxonomy from those phylogenies. To deal with this, the `malaviR` package has a data object called `taxonomy` which provides a key linking the two datasets. I will update this periodically. You can examine the key by calling the object.

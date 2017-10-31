@@ -129,7 +129,12 @@ In general, this function can be used to identify lineages for further analysis 
 library(dplyr)
 
 ## identify all pairs of sister lineages in the phylogenetic tree
-sister_taxa(tree, 1:tree$Nnode + length(tree$tip.label)) %>% group_by(ancestral.node) %>% mutate(no.lins = length(unique(taxa))) %>% filter(no.lins == 2) %>% select(-no.lins) %>% as.data.frame
+sister_taxa(tree, 1:tree$Nnode + length(tree$tip.label)) %>% 
+  group_by(ancestral.node) %>% 
+  mutate(no.lins = length(unique(taxa))) %>% 
+  filter(no.lins == 2) %>% 
+  select(-no.lins) %>% 
+  as.data.frame
 ```
 
 

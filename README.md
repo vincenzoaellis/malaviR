@@ -171,16 +171,16 @@ nodelabels()
 sis.tax.df <- sister_taxa(tree, 11)
 sis.tax.df # check it out
 #>    ancestral.node sister.clade taxa
-#> 1              11            1   t7
-#> 2              11            1   t6
-#> 3              11            1   t9
+#> 1              11            1  t10
+#> 2              11            1   t2
+#> 3              11            1   t6
 #> 4              11            1   t5
-#> 5              11            1   t3
-#> 6              11            1  t10
-#> 7              11            2   t8
-#> 8              11            2   t2
-#> 9              11            2   t1
-#> 10             11            2   t4
+#> 5              11            1   t8
+#> 6              11            1   t7
+#> 7              11            1   t3
+#> 8              11            2   t4
+#> 9              11            2   t9
+#> 10             11            2   t1
 ```
 
 In general, this function can be used to identify lineages for further analysis or for visualization purposes. For analyses of MalAvi data in particular, you might want to identify all pairs of sister lineages in a phylogeny. This could be done with one line (after calling the `dplyr` package):
@@ -190,12 +190,19 @@ In general, this function can be used to identify lineages for further analysis 
 library(dplyr)
 
 ## identify all pairs of sister lineages in the phylogenetic tree
-sister_taxa(tree, 1:tree$Nnode + length(tree$tip.label)) %>% group_by(ancestral.node) %>% mutate(no.lins = length(unique(taxa))) %>% filter(no.lins == 2) %>% select(-no.lins) %>% as.data.frame
+sister_taxa(tree, 1:tree$Nnode + length(tree$tip.label)) %>% 
+  group_by(ancestral.node) %>% 
+  mutate(no.lins = length(unique(taxa))) %>% 
+  filter(no.lins == 2) %>% 
+  select(-no.lins) %>% 
+  as.data.frame
 #>   ancestral.node sister.clade taxa
-#> 1             15            1   t6
-#> 2             15            2   t9
-#> 3             16            1   t3
-#> 4             16            2  t10
-#> 5             19            1   t2
-#> 6             19            2   t1
+#> 1             14            1  t10
+#> 2             14            2   t2
+#> 3             16            1   t6
+#> 4             16            2   t5
+#> 5             17            1   t7
+#> 6             17            2   t3
+#> 7             19            1   t4
+#> 8             19            2   t9
 ```
