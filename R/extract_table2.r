@@ -30,14 +30,18 @@ extract_table <- function(table = "Hosts and Sites Table"){
   if(table == "all"){
     data.list <- list()
     for(i in 1:length(table.urls)){
-      data.url <- read_html(table.urls[i]) %>% html_nodes("a") %>% html_attr("href")
+      data.url <- read_html(table.urls[i]) %>%
+        html_nodes("a") %>%
+        html_attr("href")
       data.url.n <- sub("../", "", data.url)
       data.list[[i]] <- fread(paste(base.url, data.url.n, sep = ""), data.table = FALSE)
     }
     names(data.list) <- table.names
     return(data.list)
   } else {
-    data.url <- read_html(table.urls[table]) %>% html_nodes("a") %>% html_attr("href")
+    data.url <- read_html(table.urls[table]) %>%
+      html_nodes("a") %>%
+      html_attr("href")
     data.url.n <- sub("../", "", data.url)
     return(fread(paste(base.url, data.url.n, sep = ""), data.table = FALSE))
   }

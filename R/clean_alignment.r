@@ -23,13 +23,18 @@ clean_alignment <- function(alignment, separate_by_genus = FALSE, haplotype_form
   }
 
   ## data frame of haplotypes and associated lineage names in wide format
-  seq.rep.df <- stri_list2matrix(seq.rep, byrow=TRUE) %>% as.data.frame %>% cbind(haplotype = 1:dim(h.rep)[1])
+  seq.rep.df <- stri_list2matrix(seq.rep, byrow=TRUE) %>%
+    as.data.frame %>%
+    cbind(haplotype = 1:dim(h.rep)[1])
 
   ## data frame of haplotypes and associated lineage names in long format
-  seq.rep.df.g <- seq.rep.df %>% gather(lin_number, Lineage_Name, -haplotype) %>% filter(!is.na(Lineage_Name))
+  seq.rep.df.g <- seq.rep.df %>% gather(lin_number, Lineage_Name, -haplotype) %>%
+    filter(!is.na(Lineage_Name))
 
   ## select one lineage per haplotype at random
-  seq.selected <- seq.rep.df.g %>% group_by(haplotype) %>% sample_n(1)
+  seq.selected <- seq.rep.df.g %>%
+    group_by(haplotype) %>%
+    sample_n(1)
 
   ## drop lineages that were not selected from the alignment
   lins.to.drop <- setdiff(seq.rep.df.g$Lineage_Name, seq.selected$Lineage_Name)

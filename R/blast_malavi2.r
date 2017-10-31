@@ -13,7 +13,8 @@ blast_malavi <- function(sequence, evalue = 1e-80, hits = 5, print.alignments = 
 
   ## set up html form
   base.url <- "http://mbio-serv2.mbioekol.lu.se/Malavi/blast.html"
-  form <- html_session(base.url) %>% html_form()
+  form <- html_session(base.url) %>%
+    html_form()
 
   ## set form values
   form <- set_values(form[[1]],"sequence" = sequence,
@@ -42,9 +43,14 @@ blast_malavi <- function(sequence, evalue = 1e-80, hits = 5, print.alignments = 
                            str_replace("Gaps = ", ""),
                          Strand = str_extract(strsplit(x, "&gt")[[1]][2:(hits+1)], "Strand=[A-Z][a-z]+/[A-Z][a-z]+" %>%
                                                 str_replace("Strand=", "")))
-    out.df$Coverage <- str_extract(out.df$Identities, "/[0-9]+") %>% str_replace("/", "") %>% as.numeric
-    out.df$Perfect.Match <- ifelse((str_extract(out.df$Identities, "[0-9]+/") %>% str_replace("/", "") %>% as.numeric)/out.df$Coverage == 1,
-                                   "Yes", "No")
+
+    out.df$Coverage <- str_extract(out.df$Identities, "/[0-9]+") %>%
+      str_replace("/", "") %>%
+      as.numeric
+
+    out.df$Perfect.Match <- ifelse((str_extract(out.df$Identities, "[0-9]+/") %>%
+                                      str_replace("/", "") %>%
+                                      as.numeric)/out.df$Coverage == 1, "Yes", "No")
   }
 
   if(print.alignments == TRUE){
