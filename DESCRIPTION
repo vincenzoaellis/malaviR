@@ -8,6 +8,7 @@ Description: Functions for downloading and manipulating data from the MalAvi dat
 License: GPL-2
 Encoding: UTF-8
 LazyData: true
+Depends: R (>= 2.10)
 Imports: ape,
     data.table,
     dplyr,
