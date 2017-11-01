@@ -39,6 +39,8 @@ Table: **Table 1.** The data tables and sequence alignments available from MalAv
 
 &nbsp;
 
+MalAvi is updated regularly and there is a version number and date of latest update recorded in the footer of the homepage. This information can be accessed in `R` using the `malavi_version()` function. 
+
 &nbsp;
 
 Typically, you will want to save the data you download as an `R` object so that they can be manipulated later. For example, say we want to get a list of the number of hosts each parasite lineage in the database has been found infecting. We start by downloading the "Grand Lineage Summary" table and saving it to an object which I will call `lin.sum`.
