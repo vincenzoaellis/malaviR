@@ -36,20 +36,8 @@ Returns a list composed of the following elements:
 \item{selected_lineages}{A vector of randomly selected sequence (lineage) names chosen to represent each repeated haplotype}
 \item{alignment_clean}{A sequence alignment of class \code{DNAbin} that has only a single representative for each haplotype. Alternatively \code{alignment_clean_Plasmodium}, \code{alignment_clean_Haemoproteus}, \code{alignment_clean_Leucocytozoon} if \code{separate_by_genus} is set to \code{TRUE}}
 }
-\references{
-%% ~put references to the literature/web site here ~
-}
 \author{
 Vincenzo A. Ellis \email{vincenzoaellis@gmail.com}
-}
-\note{
-%%  ~~further notes~~
-}
-
-%% ~Make other sections like Warning with \section{Warning }{....} ~
-
-\seealso{
-%% ~~objects to See Also as \code{\link{help}}, ~~~
 }
 \examples{
 ## load the long seqs alignment from MalAvi then clean it

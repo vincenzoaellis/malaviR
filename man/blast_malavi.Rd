@@ -46,9 +46,6 @@ Vincenzo A. Ellis \email{vincenzoaellis@gmail.com}
 \note{
 \code{Perfect.Match} in the output data frame refers to whether the pairwise alignments were identical irrespective of the coverage (e.g., an input sequence with low coverage could still generate, and often will generate, a perfect match with one or more sequences in MalAvi).
 }
-\seealso{
-%% ~~objects to See Also as \code{\link{help}}, ~~~
-}
 \examples{
 ## define a sequence. This is the Plasmodium parasite ACAGR1
 ACAGR1 <- "GCAACTGGTGCTTCATTTGTATTTATT

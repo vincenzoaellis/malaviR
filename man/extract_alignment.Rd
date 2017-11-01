@@ -39,15 +39,6 @@ Paradis E., Claude J. & Strimmer K. 2004. APE: analyses of phylogenetics and evo
 \author{
 Vincenzo A. Ellis \email{vincenzoaellis@gmail.com}
 }
-\note{
-%%  ~~further notes~~
-}
-
-%% ~Make other sections like Warning with \section{Warning }{....} ~
-
-\seealso{
-%% ~~objects to See Also as \code{\link{help}}, ~~~
-}
 \examples{
 ## download the "all seqs" alignment
 all.seqs <- extract_alignment("all seqs")

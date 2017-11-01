@@ -59,9 +59,6 @@ And 27 pairs and 2 triplets of species in the MalAvi dataset are recorded as sin
 }
 
 }
-\source{
-%%  ~~ reference to a publication or URL from which the data were obtained ~~
-}
 \references{
 Bensch S, Hellgren O, and Perez-Tris J. 2009. MalAvi: a public database of malaria parasites and related
 haemosporidians in avian hosts based on mitochondrial cytochrome \emph{b} lineages. Molecular Ecology Resources 9: 1353-1358.

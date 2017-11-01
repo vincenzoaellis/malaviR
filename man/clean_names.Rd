@@ -19,26 +19,11 @@ The lineage names from the sequence alignment files to convert. Can be one or ma
 If set to \code{TRUE} the genus of the lineage will be returned as well. Defaults to \code{FALSE}.
 }
 }
-\details{
-%%  ~~ If necessary, more details than the description above ~~
-}
 \value{
 If \code{keep.genus = FALSE} it will return an object (vector) of class \code{character}. If \code{keep.genus = TRUE} it will return an object of class \code{data.frame} with two columns (\code{parasiteGenus} and \code{Lineage_Name}).
 }
-\references{
-%% ~put references to the literature/web site here ~
-}
 \author{
 Vincenzo A. Ellis \email{vincenzoaellis@gmail.com}
-}
-\note{
-%%  ~~further notes~~
-}
-
-%% ~Make other sections like Warning with \section{Warning }{....} ~
-
-\seealso{
-%% ~~objects to See Also as \code{\link{help}}, ~~~
 }
 \examples{
 ## download a sequence alignment file from MalAvi

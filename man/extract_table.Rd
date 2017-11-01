@@ -43,15 +43,6 @@ haemosporidians in avian hosts based on mitochondrial cytochrome \emph{b} lineag
 \author{
 Vincenzo A. Ellis \email{vincenzoaellis@gmail.com}
 }
-\note{
-%%  ~~further notes~~
-}
-
-%% ~Make other sections like Warning with \section{Warning }{....} ~
-
-\seealso{
-%% ~~objects to See Also as \code{\link{help}}, ~~~
-}
 \examples{
 ## download the "Table of References"
 refs <- extract_table("Table of References")

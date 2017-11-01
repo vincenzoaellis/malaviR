@@ -34,12 +34,6 @@ Vincenzo A. Ellis \email{vincenzoaellis@gmail.com}
 \note{
 The sister taxa are grouped by the variable \code{sister.clade} as either a \code{1} or a \code{2} to indicate the different sides of the node in question. The actual numerical values of \code{sister.clade} are arbitrary, they could have been called "A" and "B".
 }
-
-%% ~Make other sections like Warning with \section{Warning }{....} ~
-
-\seealso{
-%% ~~objects to See Also as \code{\link{help}}, ~~~
-}
 \examples{
 ## simulate a phylogenetic tree using the rtree function in the ape package
 library(ape)
