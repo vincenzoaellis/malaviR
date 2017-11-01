@@ -3,7 +3,7 @@ Type: Package
 Title: An R interface to MalAvi
 Version: 0.1.0
 Authors@R: c(
-    person("Vincenzo A.", "Ellis", email = "vincenzoaellis@gmail.com", role = c("aut", "cre")),
+    person("Vincenzo A", "Ellis", email = "vincenzoaellis@gmail.com", role = c("aut", "cre")),
     person("Staffan", "Bensch", email = "staffan.bensch@biol.lu.se", role = "aut"))
 Maintainer: Vincenzo A. Ellis <vincenzoaellis@gmail.com>
 Description: Functions for downloading and manipulating data from the MalAvi database and website.
