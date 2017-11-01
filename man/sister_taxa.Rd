@@ -25,9 +25,6 @@ The node numbers in an object of class \code{phylo} can be visualized by calling
 \value{
 Returns an object of class \code{data.frame}.
 }
-\references{
-%% ~put references to the literature/web site here ~
-}
 \author{
 Vincenzo A. Ellis \email{vincenzoaellis@gmail.com}
 }
