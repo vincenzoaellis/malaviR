@@ -9,6 +9,7 @@
 #' @export
 
 clean_alignment <- function(alignment, separate_by_genus = FALSE, haplotype_format_wide = TRUE){
+  lin_number=Lineage_Name=NULL
   if(!class(alignment) == "DNAbin") stop("The alignment should be of class 'DNAbin'.")
 
   ## identify haplotypes

@@ -7,6 +7,7 @@
 #' @export
 
 clean_names <- function(lin.names, keep.genus = FALSE){
+  X1=X2=parasiteGenus=NULL
   out <- data.frame(do.call("rbind", strsplit(as.character(lin.names), "_")))
   if(keep.genus == FALSE){
     return(as.character(out[,2]))
