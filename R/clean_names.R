@@ -15,7 +15,10 @@ clean_names <- function(lin.names, keep.genus = FALSE){
     out.n <- out %>%
       select(X1, X2) %>%
       rename(parasiteGenus = X1, Lineage_Name = X2) %>%
-      mutate(parasiteGenus = recode(parasiteGenus, P = "Plasmodium", H = "Haemoproteus", L = "Leucocytozoon"))
+      mutate(parasiteGenus = recode(parasiteGenus,
+                                    P = "Plasmodium",
+                                    H = "Haemoproteus",
+                                    L = "Leucocytozoon"))
     return(out.n)
   }
 }
