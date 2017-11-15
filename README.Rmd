@@ -39,6 +39,15 @@ browseVignettes("malaviR")
 
 This will open a web browser window. Click the "HTML" link next to the tutorial name (`Getting_Started_with_malaviR`) to see the tutorial.
 
+## Citation
+
+You can cite `malaviR` as follows:
+
+```{r, message=FALSE, warning=FALSE}
+citation("malaviR")
+```
+
+
 ## Download tables from MalAvi
 
 There are nine tables that can be downloaded from the MalAvi website that summarize the database. Here's how you would download the table linking morphological species to genetic lineages:
@@ -149,4 +158,6 @@ sister_taxa(tree, 1:tree$Nnode + length(tree$tip.label)) %>%
   as.data.frame
 ```
 
+## Reporting Issues
 
+Please report any issues with the package [here](https://github.com/vincenzoaellis/malaviR/issues).

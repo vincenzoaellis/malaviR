@@ -31,6 +31,30 @@ browseVignettes("malaviR")
 
 This will open a web browser window. Click the "HTML" link next to the tutorial name (`Getting_Started_with_malaviR`) to see the tutorial.
 
+Citation
+--------
+
+You can cite `malaviR` as follows:
+
+``` r
+citation("malaviR")
+#> 
+#> To cite package 'malaviR' in publications use:
+#> 
+#>   Vincenzo A Ellis, Staffan Bensch and Björn Canbäck (NA).
+#>   malaviR: An R interface to MalAvi. R package version 0.1.0.
+#>   https://github.com/vincenzoaellis/malaviR
+#> 
+#> A BibTeX entry for LaTeX users is
+#> 
+#>   @Manual{,
+#>     title = {malaviR: An R interface to MalAvi},
+#>     author = {Vincenzo A Ellis and Staffan Bensch and Björn Canbäck},
+#>     note = {R package version 0.1.0},
+#>     url = {https://github.com/vincenzoaellis/malaviR},
+#>   }
+```
+
 Download tables from MalAvi
 ---------------------------
 
@@ -167,6 +191,7 @@ Phylogenetic analysis of the MalAvi lineages is difficult at the moment due to t
 ``` r
 ## simulate a phylogenetic tree with 10 taxa using the rtree() function in the ape package
 library(ape)
+#> Warning: package 'ape' was built under R version 3.4.2
 tree <- rtree(n=10)
 
 ## the node labels of the tree can then be examined
@@ -183,16 +208,16 @@ nodelabels()
 sis.tax.df <- sister_taxa(tree, 11)
 sis.tax.df # check it out
 #>    ancestral.node sister.clade taxa
-#> 1              11            1  t10
+#> 1              11            1   t4
 #> 2              11            1   t2
-#> 3              11            1   t1
-#> 4              11            1   t8
-#> 5              11            1   t5
-#> 6              11            1   t7
-#> 7              11            1   t9
-#> 8              11            2   t3
-#> 9              11            2   t4
-#> 10             11            2   t6
+#> 3              11            1   t5
+#> 4              11            2   t9
+#> 5              11            2   t6
+#> 6              11            2   t1
+#> 7              11            2   t7
+#> 8              11            2  t10
+#> 9              11            2   t3
+#> 10             11            2   t8
 ```
 
 In general, this function can be used to identify lineages for further analysis or for visualization purposes. For analyses of MalAvi data in particular, you might want to identify all pairs of sister lineages in a phylogeny. This could be done with one line (after calling the `dplyr` package):
@@ -209,12 +234,13 @@ sister_taxa(tree, 1:tree$Nnode + length(tree$tip.label)) %>%
   select(-no.lins) %>% 
   as.data.frame
 #>   ancestral.node sister.clade taxa
-#> 1             13            1  t10
-#> 2             13            2   t2
-#> 3             16            1   t8
-#> 4             16            2   t5
-#> 5             17            1   t7
-#> 6             17            2   t9
-#> 7             19            1   t4
-#> 8             19            2   t6
+#> 1             13            1   t2
+#> 2             13            2   t5
+#> 3             19            1   t7
+#> 4             19            2  t10
 ```
+
+Reporting Issues
+----------------
+
+Please report any issues with the package [here](https://github.com/vincenzoaellis/malaviR/issues).
