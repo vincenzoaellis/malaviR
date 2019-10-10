@@ -30,7 +30,6 @@ clean_alignment <- function(alignment, separate_by_genus = FALSE, haplotype_form
 
   ## data frame of haplotypes and associated lineage names in long format
   seq.rep.df.g <- seq.rep.df %>%
-    mutate(V1 = as.character(V1), V2 = as.character(V2)) %>%
     gather(lin_number, Lineage_Name, -haplotype) %>%
     filter(!is.na(Lineage_Name))
 

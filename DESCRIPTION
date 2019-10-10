@@ -1,7 +1,7 @@
 Package: malaviR
 Type: Package
 Title: An R interface to MalAvi
-Version: 0.1.0
+Version: 0.2.0
 Authors@R: c(
     person("Vincenzo A", "Ellis", email = "vincenzoaellis@gmail.com", role = c("aut", "cre")),
     person("Staffan", "Bensch", email = "staffan.bensch@biol.lu.se", role = "aut"),
@@ -23,7 +23,7 @@ Imports: ape,
     stringr,
     tidyr,
     xml2
-RoxygenNote: 6.0.1
+RoxygenNote: 6.1.1
 URL: https://github.com/vincenzoaellis/malaviR
 BugReports: https://github.com/vincenzoaellis/malaviR/issues
 Suggests: ggplot2,

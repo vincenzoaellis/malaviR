@@ -6,20 +6,20 @@
 #' @importFrom data.table fread
 #' @export
 extract_table <- function(table = "Hosts and Sites Table"){
-  base.url <- "http://mbio-serv2.mbioekol.lu.se/"
+  base.url <- "http://130.235.244.92/"
   table.names <- c("Hosts and Sites Table", "Table of References", "Grand Lineage Summary",
                    "Parasite Summary Per Host", "Table of Lineage Names",
                    "Morpho Species Summary", "Vector Data Table", "Other Genes Table",
                    "Database Summary Report")
-  table.urls <- c("http://mbio-serv2.mbioekol.lu.se/bcgi/malaviReport.cgi?report4=Hosts+And+Sites+Table",
-                  "http://mbio-serv2.mbioekol.lu.se/bcgi/malaviReport.cgi?report6=Table+of+References",
-                  "http://mbio-serv2.mbioekol.lu.se/bcgi/malaviReport.cgi?report1=Grand+Lineage+Summary",
-                  "http://mbio-serv2.mbioekol.lu.se/bcgi/malaviReport.cgi?report5=Parasite+Summary+Per+Host",
-                  "http://mbio-serv2.mbioekol.lu.se/bcgi/malaviReport.cgi?report7=Table+of+Lineage+Names",
-                  "http://mbio-serv2.mbioekol.lu.se/bcgi/malaviReport.cgi?report2=Morpho+Species+Summary",
-                  "http://mbio-serv2.mbioekol.lu.se/bcgi/malaviReport.cgi?report3=Vector+Data+Table",
-                  "http://mbio-serv2.mbioekol.lu.se/bcgi/malaviReport.cgi?report9=Other+Genes+Table",
-                  "http://mbio-serv2.mbioekol.lu.se/bcgi/malaviReport.cgi?report8=Database+Summary+Report")
+  table.urls <- c("http://130.235.244.92/bcgi/malaviReport.cgi?report4=Hosts+And+Sites+Table",
+                  "http://130.235.244.92/bcgi/malaviReport.cgi?report6=Table+of+References",
+                  "http://130.235.244.92/bcgi/malaviReport.cgi?report1=Grand+Lineage+Summary",
+                  "http://130.235.244.92/bcgi/malaviReport.cgi?report5=Parasite+Summary+Per+Host",
+                  "http://130.235.244.92/bcgi/malaviReport.cgi?report7=Table+of+Lineage+Names",
+                  "http://130.235.244.92/bcgi/malaviReport.cgi?report2=Morpho+Species+Summary",
+                  "http://130.235.244.92/bcgi/malaviReport.cgi?report3=Vector+Data+Table",
+                  "http://130.235.244.92/bcgi/malaviReport.cgi?report9=Other+Genes+Table",
+                  "http://130.235.244.92/bcgi/malaviReport.cgi?report8=Database+Summary+Report")
   names(table.urls) <- table.names
   if(!(table %in% c(table.names, "all"))){
     stop('Please choose one of the following table names:

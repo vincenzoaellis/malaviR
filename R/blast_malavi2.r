@@ -12,7 +12,7 @@
 blast_malavi <- function(sequence, evalue = 1e-80, hits = 5, print.alignments = FALSE){
 
   ## set up html form
-  base.url <- "http://mbio-serv2.mbioekol.lu.se/Malavi/blast.html"
+  base.url <- "http://130.235.244.92/Malavi/blast.html"
   form <- html_session(base.url) %>%
     html_form()
 
