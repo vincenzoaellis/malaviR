@@ -63,12 +63,11 @@ synonymy_report <- function(alignment = NULL, method = c("overlap", "strict"),
     p[is.na(p)] <- "other"
     unname(p)
   }
-  if (nrow(synonymies) > 0) {
-    synonymies$genus <- genus_of(synonymies$lineage)
-    synonymies$is_partial <- synonymies$informative_length < g$aln_length
-    synonymies <- synonymies[c("haplotype", "lineage", "genus",
-                               "informative_length", "is_partial", "status")]
-  }
+  ## (works on a zero-row frame too, so a synonymy-free alignment is handled)
+  synonymies$genus <- genus_of(synonymies$lineage)
+  synonymies$is_partial <- synonymies$informative_length < g$aln_length
+  synonymies <- synonymies[c("haplotype", "lineage", "genus",
+                             "informative_length", "is_partial", "status")]
 
   n_sequences  <- length(g$lineages)
   n_haplotypes <- length(unique(g$group))
