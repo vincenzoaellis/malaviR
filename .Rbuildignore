@@ -2,3 +2,8 @@
 ^\.Rproj\.user$
 ^README\.Rmd$
 ^README-.*\.png$
+^CLAUDE\.md$
+^data-raw$
+^MalAviBLAST$
+^logs$
+^.*\.zip$
