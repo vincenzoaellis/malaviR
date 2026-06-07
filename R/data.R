@@ -28,6 +28,6 @@
 #'     or \code{"none"}.}
 #' }
 #' @seealso \code{\link{match_taxonomy}}, \code{\link{clootl_taxonomy_version}}
-#' @source MalAvi (\url{http://130.235.244.92/Malavi/}) host species matched to
-#'   the clootl taxonomy (\url{https://github.com/McTavishLab/clootl}).
+#' @source MalAvi (\url{https://wimanet-science.github.io/web/malavi/}) host species
+#'   matched to the clootl taxonomy (\url{https://github.com/eliotmiller/clootl}).
 "taxonomy"

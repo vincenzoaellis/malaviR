@@ -1,6 +1,6 @@
 # malaviR
 
-An R interface to [MalAvi](http://mbio-serv2.mbioekol.lu.se/Malavi/), the public
+An R interface to [MalAvi](https://wimanet-science.github.io/web/malavi/), the public
 database of avian haemosporidian (malaria and related) parasite mtDNA cytochrome
 *b* lineages.
 
@@ -63,9 +63,9 @@ blast_malavi(query, top_n = 5)
 
 ### Repeated haplotypes ("synonymies")
 
-Different MalAvi names are sometimes assigned to the same sequence, which inflates
-estimates of parasite diversity — see
-[Tamayo-Quintero et al. 2025](https://doi.org/10.1371/journal.ppat.1012911).
+Some incomplete MalAvi sequences match longer sequences but retain different
+lineage names. This can inflate estimates of parasite lineage diversity
+([Tamayo-Quintero et al. 2025](https://doi.org/10.1371/journal.ppat.1012911)).
 `synonymy_report()` quantifies the problem and points to the lineages to check;
 `clean_alignment()` produces a de-duplicated alignment, letting you choose which
 name to keep. By default it keeps the most complete sequence in each group
@@ -84,7 +84,7 @@ res_rand <- clean_alignment(aln, select = "random")   # quick random pick
 ### Host taxonomy
 
 `match_taxonomy()` aligns MalAvi host species names to the modern
-[clootl](https://github.com/McTavishLab/clootl) (eBird) avian taxonomy and flags
+[clootl](https://github.com/eliotmiller/clootl) (eBird) avian taxonomy and flags
 names that don't match (synonyms, hybrids, `sp.`, etc.). The pre-built crosswalk
 for all MalAvi hosts is bundled as the `taxonomy` dataset.
 

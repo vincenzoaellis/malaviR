@@ -19,8 +19,8 @@ A data frame with one row per unique MalAvi host species and the
 }
 }
 \source{
-MalAvi (\url{http://130.235.244.92/Malavi/}) host species matched to
-  the clootl taxonomy (\url{https://github.com/McTavishLab/clootl}).
+MalAvi (\url{https://wimanet-science.github.io/web/malavi/}) host species
+  matched to the clootl taxonomy (\url{https://github.com/eliotmiller/clootl}).
 }
 \usage{
 taxonomy
