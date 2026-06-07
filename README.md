@@ -38,8 +38,8 @@ The bundled database is identified by its release date (e.g. `2026-03-23`).
 ```r
 library(malaviR)
 
-malavi_version()    # release date of the bundled MalAvi snapshot
-malavi_versions()   # all bundled releases
+malavi_version()        # release date of the bundled MalAvi snapshot
+malavi_version("all")   # all bundled releases
 ```
 
 ### Data tables and the alignment
@@ -68,12 +68,17 @@ estimates of parasite diversity — see
 [Tamayo-Quintero et al. 2025](https://doi.org/10.1371/journal.ppat.1012911).
 `synonymy_report()` quantifies the problem and points to the lineages to check;
 `clean_alignment()` produces a de-duplicated alignment, letting you choose which
-name to keep.
+name to keep. By default it keeps the most complete sequence in each group
+(deterministic); use `select = "random"` for a quick random pick, or `keep =` to
+override specific groups (see `?clean_alignment`).
 
 ```r
 synonymy_report()$summary             # how many names share a haplotype
-res <- clean_alignment(aln, method = "overlap")
+res <- clean_alignment(aln, method = "overlap")   # keeps most complete per group
 head(res$synonymies)
+
+set.seed(1)
+res_rand <- clean_alignment(aln, select = "random")   # quick random pick
 ```
 
 ### Host taxonomy
@@ -97,7 +102,7 @@ data(taxonomy)
 
 When a new MalAvi release arrives (a `MalAvi_<date>.zip`), maintainers drop it in
 `data-raw/` and run `data-raw/process_release.R` to regenerate the bundled data
-and BLAST index, then commit and push. See `CLAUDE.md` for the full workflow.
+and BLAST index, then commit and push.
 
 ## Citation
 

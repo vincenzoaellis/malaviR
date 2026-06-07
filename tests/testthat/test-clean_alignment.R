@@ -24,6 +24,24 @@ test_that("clean_alignment lets the user choose which lineage to keep", {
   expect_identical(res$dropped, "seq1")
 })
 
+test_that("clean_alignment select = 'random' keeps a group member, reproducibly", {
+  ## the only repeated group is {seq1, seq3}; a random pick must be one of them
+  set.seed(42)
+  res <- clean_alignment(make_alignment(), select = "random")
+  expect_length(res$kept, 1)
+  expect_true(res$kept %in% c("seq1", "seq3"))
+  expect_setequal(c(res$kept, res$dropped), c("seq1", "seq3"))
+
+  ## same seed -> same choice
+  set.seed(42)
+  res2 <- clean_alignment(make_alignment(), select = "random")
+  expect_identical(res$kept, res2$kept)
+
+  ## keep still overrides the random rule
+  res3 <- clean_alignment(make_alignment(), select = "random", keep = "seq3")
+  expect_identical(res3$kept, "seq3")
+})
+
 test_that("clean_alignment errors when nothing repeats or input is wrong", {
   res <- clean_alignment(make_alignment())
   expect_error(clean_alignment(res$alignment_clean), "no repeated haplotypes")

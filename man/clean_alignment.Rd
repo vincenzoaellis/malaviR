@@ -4,7 +4,12 @@
 \alias{clean_alignment}
 \title{Identify and collapse repeated haplotypes in a MalAvi alignment}
 \usage{
-clean_alignment(alignment, method = c("strict", "overlap"), keep = NULL)
+clean_alignment(
+  alignment,
+  method = c("strict", "overlap"),
+  select = c("complete", "random"),
+  keep = NULL
+)
 }
 \arguments{
 \item{alignment}{A \code{DNAbin} alignment (e.g. from
@@ -12,6 +17,11 @@ clean_alignment(alignment, method = c("strict", "overlap"), keep = NULL)
 
 \item{method}{How to define a repeated haplotype: \code{"strict"} (default) or
 \code{"overlap"} (see Details).}
+
+\item{select}{How to pick the lineage kept from each synonymy group when it is
+not named in \code{keep}: \code{"complete"} (default) keeps the most complete
+sequence (ties broken alphabetically); \code{"random"} keeps one at random
+(set a seed first for reproducibility).}
 
 \item{keep}{Optional character vector of lineage names to keep. For each
 synonymy group containing one of these names, that name is kept; an error is
@@ -39,11 +49,13 @@ those synonymies, and produces a de-duplicated alignment that keeps one
 lineage per group.
 }
 \details{
-Unlike earlier versions of \code{malaviR}, which kept a random lineage from
-each group, this function is deterministic and lets you choose which lineage
-to keep. By default the most complete sequence in each group is kept (ties are
-broken alphabetically). Supply \code{keep} to override that choice for
-specific groups; any group without a supplied choice falls back to the default.
+By default this function is deterministic: the most complete sequence in each
+group is kept (ties broken alphabetically). Set \code{select = "random"} for
+the quick, non-deterministic behaviour of earlier \code{malaviR} versions,
+which keep one lineage per group at random (call \code{\link{set.seed}} first
+for reproducibility). In either case, supply \code{keep} to override the choice
+for specific groups; any group without a supplied choice falls back to the
+\code{select} rule.
 
 Two definitions of "same haplotype" are available via \code{method}:
 \describe{
@@ -62,6 +74,10 @@ short, partial sequences at the heart of the problem.
 aln <- extract_alignment()
 res <- clean_alignment(aln)
 head(res$synonymies)
+
+## quick random pick (reproducible with a seed)
+set.seed(1)
+res_rand <- clean_alignment(aln, select = "random")
 }
 \references{
 Tamayo-Quintero J, Martinez-de la Puente J, Matta NE, Pacheco MA,

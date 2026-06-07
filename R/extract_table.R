@@ -2,7 +2,7 @@
 #'
 #' Returns one of the MalAvi data tables from the database snapshot bundled in
 #' the package. MalAvi is no longer downloaded from the web; the tables come from
-#' the release shipped with \code{malaviR} (see \code{\link{malavi_versions}}).
+#' the release shipped with \code{malaviR} (see \code{\link{malavi_version}}).
 #'
 #' The bundled release provides five tables:
 #' \describe{
@@ -21,7 +21,7 @@
 #'   \code{"2026-03-23"}) or \code{"latest"} (default).
 #' @return A \code{data.frame}, or for \code{table = "all"} a named list of
 #'   \code{data.frame}s.
-#' @seealso \code{\link{extract_alignment}}, \code{\link{malavi_versions}}
+#' @seealso \code{\link{extract_alignment}}, \code{\link{malavi_version}}
 #' @examples
 #' hosts <- extract_table("Hosts and Sites Table")
 #' head(hosts)

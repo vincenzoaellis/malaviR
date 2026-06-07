@@ -106,8 +106,10 @@
 }
 
 ## Build the synonymy table (groups with >1 lineage) and pick which to keep.
-## Default keep = most complete sequence per group (ties: alphabetical).
-.build_synonymies <- function(lineages, group, informative_length, keep = NULL) {
+## select = "complete" (default) keeps the most complete sequence per group
+## (ties: alphabetical); select = "random" keeps one member at random.
+.build_synonymies <- function(lineages, group, informative_length,
+                              select = "complete", keep = NULL) {
   sizes <- table(group)
   multi <- as.integer(names(sizes))[sizes > 1]
 
@@ -116,7 +118,8 @@
   for (i in seq_along(multi)) {
     members <- lineages[group == multi[i]]
     members <- members[order(-informative_length[members], members)]
-    chosen <- members[1]
+    ## members are sorted most-complete first; random picks any member instead
+    chosen <- if (select == "random") sample(members, 1L) else members[1]
     user_choice <- intersect(keep, members)
     if (length(user_choice) > 1) {
       stop("More than one 'keep' lineage falls in the same haplotype group: ",

@@ -20,7 +20,7 @@ A \code{data.frame}, or for \code{table = "all"} a named list of
 \description{
 Returns one of the MalAvi data tables from the database snapshot bundled in
 the package. MalAvi is no longer downloaded from the web; the tables come from
-the release shipped with \code{malaviR} (see \code{\link{malavi_versions}}).
+the release shipped with \code{malaviR} (see \code{\link{malavi_version}}).
 }
 \details{
 The bundled release provides five tables:
@@ -39,5 +39,5 @@ hosts <- extract_table("Hosts and Sites Table")
 head(hosts)
 }
 \seealso{
-\code{\link{extract_alignment}}, \code{\link{malavi_versions}}
+\code{\link{extract_alignment}}, \code{\link{malavi_version}}
 }

@@ -1,5 +1,5 @@
-test_that("malavi_versions and malavi_version report the bundled release", {
-  v <- malavi_versions()
+test_that("malavi_version reports the bundled release", {
+  v <- malavi_version("all")
   expect_type(v, "character")
   expect_gte(length(v), 1)
   expect_identical(malavi_version(), v[1])

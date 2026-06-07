@@ -17,12 +17,12 @@ A character vector of version (date) string(s).
 Returns the version (release date) of the MalAvi database snapshot that
 \code{malaviR} reads from. MalAvi is no longer queried online, so the
 "version" is simply the date stamp of the bundled release (e.g.
-\code{"2026-03-23"}). Use \code{\link{malavi_versions}} to see every release
-bundled in your installation.
+\code{"2026-03-23"}). Use \code{which = "all"} to list every release bundled in
+your installation.
 }
 \examples{
 malavi_version()
 }
 \seealso{
-\code{\link{malavi_versions}}
+\code{\link{extract_table}}, \code{\link{extract_alignment}}
 }

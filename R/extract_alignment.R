@@ -3,7 +3,7 @@
 #' Returns the aligned MalAvi cytochrome \emph{b} sequences from the database
 #' snapshot bundled in the package, as a \code{DNAbin} object. MalAvi is no longer
 #' downloaded from the web; the alignment comes from the release shipped with
-#' \code{malaviR} (see \code{\link{malavi_versions}}).
+#' \code{malaviR} (see \code{\link{malavi_version}}).
 #'
 #' Lineage names are prefixed by parasite genus: \code{P_} (\emph{Plasmodium}),
 #' \code{H_} (\emph{Haemoproteus}), \code{L_} (\emph{Leucocytozoon}); any other

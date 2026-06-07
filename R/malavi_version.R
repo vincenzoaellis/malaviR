@@ -3,13 +3,13 @@
 #' Returns the version (release date) of the MalAvi database snapshot that
 #' \code{malaviR} reads from. MalAvi is no longer queried online, so the
 #' "version" is simply the date stamp of the bundled release (e.g.
-#' \code{"2026-03-23"}). Use \code{\link{malavi_versions}} to see every release
-#' bundled in your installation.
+#' \code{"2026-03-23"}). Use \code{which = "all"} to list every release bundled in
+#' your installation.
 #'
 #' @param which Either \code{"latest"} (default) to return the most recent
 #'   bundled release, or \code{"all"} to return all bundled releases.
 #' @return A character vector of version (date) string(s).
-#' @seealso \code{\link{malavi_versions}}
+#' @seealso \code{\link{extract_table}}, \code{\link{extract_alignment}}
 #' @examples
 #' malavi_version()
 #' @export
