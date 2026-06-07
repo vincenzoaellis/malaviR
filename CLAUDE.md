@@ -141,6 +141,30 @@ phylogeny). Provide:
 
 ## STATUS LOG (newest first)
 
+- **2026-06-07 (COMPLETE — ready to push)** — Rewrite finished and committed locally;
+  NOT yet pushed (push is done by Vincenzo with a GitHub PAT over HTTPS; `gh` not installed).
+  - **5 local commits** on `master` ahead of origin, authored
+    `Vincenzo A. Ellis <vincenzoaellis@gmail.com>`, each with a `Co-Authored-By: Claude`
+    trailer: (1) bundle data + tooling, (2) core offline rewrite + blast/synonymy/taxonomy,
+    (3) tests, (4) README/vignette/CITATION/CLAUDE.md, (5) startup notice + synonymy_report fix.
+  - **All 5 user items done:** offline bundled DB (ship latest, zip archived in data-raw);
+    offline DECIPHER `blast_malavi`; clootl(2025)/eBird taxonomy crosswalk + `match_taxonomy`
+    (+ flags sp./hybrids/`\r\n`); old vignette removed, README refreshed (incl. Claude Code
+    Opus 4.8 acknowledgment) + one network-free vignette + `clean_alignment` redesign
+    (synonymy table, user-controlled keep, strict/overlap) + `synonymy_report`; clarity pass
+    keeping `%>%`. GitHub issues #1–#7 all addressed.
+  - **Added too:** `.onAttach` startup message warning of the major update; `inst/CITATION`
+    (package + Ellis&Bensch 2018 + MalAvi 2009); fixed `synonymy_report` no-synonymy edge case.
+  - **Validation:** `R CMD check` clean (0 errors; only environmental qpdf WARNING + clock NOTE,
+    which vanish on a normal/CRAN system). Tests: 47 pass / 3 skip (blast skips without
+    DECIPHER>=3). `blast_malavi` verified self-hit 100% under the R 4.5 conda env.
+    Overlap synonymy detection on the real alignment: 198 groups / 210 redundant names
+    (4.07% diversity inflation) vs 8 / 9 (0.17%) for strict.
+  - **Recurring maintainer workflow** (new MalAvi release): drop `MalAvi_<date>.zip` in
+    `data-raw/`, run `data-raw/process_release.R` **under the R 4.5 conda env**
+    (`conda run -p ~/conda_envs/malaviR Rscript ...`) so the DECIPHER index builds; to refresh
+    the taxonomy run `data-raw/build_taxonomy.R`; then `devtools::document()` + commit + push.
+
 - **2026-06-07 (cont.)** — Implementation well underway:
   - Data layer DONE: `inst/extdata/malavi_db_2026-03-23.rds` + `malavi_blast_2026-03-23.rds`;
     `data-raw/process_release.R` validated end-to-end under R 4.5 (rebuilds index fresh).
