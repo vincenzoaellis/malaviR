@@ -1,4 +1,23 @@
-#' Identify sister taxa from node in a phylogeny
+#' Identify the sister taxa at a node in a phylogeny
+#'
+#' For an internal node, returns the tips descending from each of its two
+#' immediate child clades, labelled as sister clade 1 or 2. This is useful, for
+#' example, for comparing the hosts or traits of sister lineages in a parasite
+#' phylogeny (Ellis & Bensch 2018). One or several nodes may be supplied.
+#'
+#' @param tree A phylogeny of class \code{phylo} (see \pkg{ape}).
+#' @param node An internal node number, or a vector of node numbers. For a vector,
+#'   results for each node are stacked into one data frame.
+#' @return A \code{data.frame} with columns \code{ancestral.node},
+#'   \code{sister.clade} (1 or 2), and \code{taxa} (tip label).
+#' @references
+#' Ellis VA, Bensch S (2018). Host specificity of avian haemosporidian parasites
+#' is unrelated among sister lineages but shows phylogenetic signal across larger
+#' clades. International Journal for Parasitology 48: 897-902.
+#' \doi{10.1016/j.ijpara.2018.05.005}
+#' @examples
+#' tree <- ape::read.tree(text = "((A,B),(C,(D,E)));")
+#' sister_taxa(tree, node = 8)
 #' @importFrom ape extract.clade
 #' @export
 sister_taxa <- function(tree, node){

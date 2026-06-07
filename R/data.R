@@ -1,0 +1,33 @@
+#' MalAvi host species matched to the clootl (eBird) taxonomy
+#'
+#' A crosswalk between the unique host species names in the bundled MalAvi
+#' \dQuote{Hosts and Sites Table} and the modern avian taxonomy used by the
+#' \pkg{clootl} package (the eBird/Clements taxonomy underlying the McTavish et
+#' al. avian phylogeny). It is produced by \code{\link{match_taxonomy}} and
+#' replaces the earlier crosswalk to the 2012 Jetz et al. (\url{birdtree.org})
+#' phylogeny used in older versions of \code{malaviR}.
+#'
+#' The bundled clootl taxonomy year is reported by
+#' \code{\link{clootl_taxonomy_version}}. Rows with \code{match_type == "exact"}
+#' matched an eBird scientific name directly; \code{"synonym:*"} matched via the
+#' IOC, BirdLife, or Howard & Moore names that clootl carries; \code{"generic"}
+#' are names that cannot map to a single species (e.g. ending in \dQuote{sp.} or
+#' hybrids); and \code{"none"} are binomials with no match in the bundled
+#' taxonomy.
+#'
+#' @format A data frame with one row per unique MalAvi host species and the
+#'   following columns:
+#' \describe{
+#'   \item{malavi_species}{host species name as it appears in MalAvi.}
+#'   \item{ebird_species}{matched eBird scientific name, or \code{NA}.}
+#'   \item{ott_name}{matching tip label in the clootl phylogeny, or \code{NA}.}
+#'   \item{order}{taxonomic order of the matched species, or \code{NA}.}
+#'   \item{family}{taxonomic family of the matched species, or \code{NA}.}
+#'   \item{match_type}{how the name matched: \code{"exact"}, \code{"synonym:IOC"},
+#'     \code{"synonym:BirdLife"}, \code{"synonym:HowardMoore"}, \code{"generic"},
+#'     or \code{"none"}.}
+#' }
+#' @seealso \code{\link{match_taxonomy}}, \code{\link{clootl_taxonomy_version}}
+#' @source MalAvi (\url{http://130.235.244.92/Malavi/}) host species matched to
+#'   the clootl taxonomy (\url{https://github.com/McTavishLab/clootl}).
+"taxonomy"

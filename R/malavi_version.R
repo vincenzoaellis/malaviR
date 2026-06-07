@@ -1,12 +1,23 @@
-#' Get version number and upload date from MalAvi website
-#' @importFrom magrittr %>%
-#' @importFrom xml2 read_html
-#' @importFrom rvest html_text
-#' @importFrom stringr str_extract
+#' MalAvi database version bundled in the package
+#'
+#' Returns the version (release date) of the MalAvi database snapshot that
+#' \code{malaviR} reads from. MalAvi is no longer queried online, so the
+#' "version" is simply the date stamp of the bundled release (e.g.
+#' \code{"2026-03-23"}). Use \code{\link{malavi_versions}} to see every release
+#' bundled in your installation.
+#'
+#' @param which Either \code{"latest"} (default) to return the most recent
+#'   bundled release, or \code{"all"} to return all bundled releases.
+#' @return A character vector of version (date) string(s).
+#' @seealso \code{\link{malavi_versions}}
+#' @examples
+#' malavi_version()
 #' @export
-
-malavi_version <- function(){
-  read_html("http://130.235.244.92/Malavi/JavaScript/footer.js") %>%
-    html_text() %>%
-    str_extract(pattern = "Version ([0-9]|[0-9]+).([0-9]|[0-9]+).([0-9]|[0-9]+), ([A-Z][a-z]+|[A-Z][a-z]+.) ([0-9]|[0-9]+)([a-z]+|), [0-9]+")
+malavi_version <- function(which = c("latest", "all")) {
+  which <- match.arg(which)
+  vers <- .malavi_versions("malavi_db_")
+  if (length(vers) == 0) {
+    stop("No bundled MalAvi data found in the package. Reinstall malaviR.", call. = FALSE)
+  }
+  if (which == "latest") vers[1] else vers
 }

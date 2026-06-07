@@ -1,33 +1,38 @@
 Package: malaviR
 Type: Package
 Title: An R interface to MalAvi
-Version: 0.2.0
+Version: 1.0.0
 Authors@R: c(
     person("Vincenzo A", "Ellis", email = "vincenzoaellis@gmail.com", role = c("aut", "cre")),
     person("Staffan", "Bensch", email = "staffan.bensch@biol.lu.se", role = "aut"),
     person("Bjorn", "Canback", email = "bjorn.canback@biol.lu.se", role = "aut"))
 Maintainer: Vincenzo A. Ellis <vincenzoaellis@gmail.com>
-Description: Functions for downloading and manipulating data from the MalAvi database and website.
+Description: Functions for working with data from the MalAvi database of avian
+    haemosporidian parasites. The MalAvi website is no longer available online,
+    so the database tables and sequence alignment are bundled with the package
+    as dated release snapshots. Tools are provided to read those tables and
+    alignments, run a local BLAST-like search of a sequence against MalAvi,
+    clean repeated haplotypes from an alignment, and relate host taxonomy to a
+    modern avian taxonomy.
 License: GPL-2
 Encoding: UTF-8
 LazyData: true
-Depends: R (>= 2.10)
-Imports: ape,
-    data.table,
+Depends: R (>= 3.5.0)
+Imports:
+    ape,
     dplyr,
-    httr,
     magrittr,
-    pegas,
-    rvest,
-    stringi,
-    stringr,
-    tidyr,
-    xml2
-RoxygenNote: 6.1.1
-URL: https://github.com/vincenzoaellis/malaviR
-BugReports: https://github.com/vincenzoaellis/malaviR/issues
-Suggests: ggplot2,
+    utils
+Suggests:
+    Biostrings,
+    clootl,
+    DECIPHER (>= 3.0),
+    ggplot2,
     knitr,
+    readxl,
     rmarkdown,
     testthat
+RoxygenNote: 7.3.1
+URL: https://github.com/vincenzoaellis/malaviR
+BugReports: https://github.com/vincenzoaellis/malaviR/issues
 VignetteBuilder: knitr
