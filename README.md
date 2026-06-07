@@ -1,246 +1,121 @@
+# malaviR
 
-<!-- README.md is generated from README.Rmd. Please edit that file -->
-malaviR
-=======
+An R interface to [MalAvi](http://mbio-serv2.mbioekol.lu.se/Malavi/), the public
+database of avian haemosporidian (malaria and related) parasite mtDNA cytochrome
+*b* lineages.
 
-This package is an `R` interface to the global avian haemosporidian database MalAvi (<http://mbio-serv2.mbioekol.lu.se/Malavi/>). The package includes functions for downloading data from the MalAvi website directly into your `R` environment and some basic utility functions for manipulating those data. Furthermore, you can use `malaviR` to BLAST your haemosporidian DNA sequences against the MalAvi database programmatically, which should facilitate comparisons with MalAvi.
+> **Note on this release.** MalAvi is no longer hosted as a queryable website, so
+> the functions that used to download data from the MalAvi server no longer work.
+> This version of `malaviR` instead **bundles a dated snapshot of the MalAvi
+> database** (tables and the sequence alignment) inside the package, and provides
+> a local, BLAST-like search to replace the old online BLAST. I used Claude Code
+> (Opus 4.8) to rewrite the package. I believe everything is working as expected,
+> but please open an issue if you find mistakes.
 
-The package also includes a key for linking the host taxonomic classifications in MalAvi with the avian taxonomic classifications found on <http://birdtree.org/>.
+## Installation
 
-Installation
-------------
-
-You can install `malaviR` from github with:
-
-``` r
-# install.packages("devtools")
-devtools::install_github("vincenzoaellis/malaviR", build_vignettes = TRUE)
+```r
+# install.packages("remotes")
+remotes::install_github("vincenzoaellis/malaviR")
 ```
 
-Then you can load it in your `R` session with:
+The core data functions need only CRAN packages. Two optional features need extra
+packages:
 
-``` r
+```r
+# for blast_malavi() — local BLAST-like search (needs R >= 4.4)
+# install.packages("BiocManager")
+BiocManager::install(c("DECIPHER", "Biostrings"))
+
+# clootl is only needed to *rebuild* the bundled taxonomy, not to use it
+install.packages("clootl")
+```
+
+## What's in the package
+
+The bundled database is identified by its release date (e.g. `2026-03-23`).
+
+```r
 library(malaviR)
+
+malavi_version()    # release date of the bundled MalAvi snapshot
+malavi_versions()   # all bundled releases
 ```
 
-The tutorial is accessible by calling the package vignette:
+### Data tables and the alignment
 
-``` r
-browseVignettes("malaviR")
+```r
+hosts <- extract_table("Hosts and Sites Table")   # one of five MalAvi tables
+aln   <- extract_alignment()                       # the cyt-b alignment (DNAbin)
+plas  <- extract_alignment(genus = "Plasmodium")   # subset by parasite genus
 ```
 
-This will open a web browser window. Click the "HTML" link next to the tutorial name (`Getting_Started_with_malaviR`) to see the tutorial.
+### Local BLAST-like search
 
-Citation
---------
+`blast_malavi()` searches a query sequence against the bundled MalAvi alignment
+using a pre-built [DECIPHER](https://decipher.codes/) index, returning the most
+similar lineages. (Requires DECIPHER >= 3.0 and Biostrings.)
 
-You can cite `malaviR` as follows:
+```r
+query <- gsub("-", "", paste(as.character(aln[1, ]), collapse = ""))
+blast_malavi(query, top_n = 5)
+```
 
-``` r
+### Repeated haplotypes ("synonymies")
+
+Different MalAvi names are sometimes assigned to the same sequence, which inflates
+estimates of parasite diversity — see
+[Tamayo-Quintero et al. 2025](https://doi.org/10.1371/journal.ppat.1012911).
+`synonymy_report()` quantifies the problem and points to the lineages to check;
+`clean_alignment()` produces a de-duplicated alignment, letting you choose which
+name to keep.
+
+```r
+synonymy_report()$summary             # how many names share a haplotype
+res <- clean_alignment(aln, method = "overlap")
+head(res$synonymies)
+```
+
+### Host taxonomy
+
+`match_taxonomy()` aligns MalAvi host species names to the modern
+[clootl](https://github.com/McTavishLab/clootl) (eBird) avian taxonomy and flags
+names that don't match (synonyms, hybrids, `sp.`, etc.). The pre-built crosswalk
+for all MalAvi hosts is bundled as the `taxonomy` dataset.
+
+```r
+match_taxonomy(c("Turdus merula", "Anas sp."))$key
+data(taxonomy)
+```
+
+### Phylogenies
+
+`sister_taxa()` returns the tips descending from each child clade at a node, and
+`clean_names()` strips the genus prefix from alignment tip labels.
+
+## Updating the bundled database
+
+When a new MalAvi release arrives (a `MalAvi_<date>.zip`), maintainers drop it in
+`data-raw/` and run `data-raw/process_release.R` to regenerate the bundled data
+and BLAST index, then commit and push. See `CLAUDE.md` for the full workflow.
+
+## Citation
+
+If you use `malaviR`, please cite the package and:
+
+* Ellis VA, Bensch S (2018). Host specificity of avian haemosporidian parasites
+  is unrelated among sister lineages but shows phylogenetic signal across larger
+  clades. *International Journal for Parasitology* **48**: 897–902.
+  <https://doi.org/10.1016/j.ijpara.2018.05.005>
+* Bensch S, Hellgren O, Pérez-Tris J (2009). MalAvi: a public database of malaria
+  parasites and related haemosporidians in avian hosts based on mitochondrial
+  cytochrome *b* lineages. *Molecular Ecology Resources* **9**: 1353–1358.
+
+```r
 citation("malaviR")
-#> 
-#> To cite package 'malaviR' in publications use:
-#> 
-#>   Vincenzo A Ellis, Staffan Bensch and Björn Canbäck (NA).
-#>   malaviR: An R interface to MalAvi. R package version 0.1.0.
-#>   https://github.com/vincenzoaellis/malaviR
-#> 
-#> A BibTeX entry for LaTeX users is
-#> 
-#>   @Manual{,
-#>     title = {malaviR: An R interface to MalAvi},
-#>     author = {Vincenzo A Ellis and Staffan Bensch and Björn Canbäck},
-#>     note = {R package version 0.1.0},
-#>     url = {https://github.com/vincenzoaellis/malaviR},
-#>   }
 ```
 
-Download tables from MalAvi
----------------------------
+## Issues
 
-There are nine tables that can be downloaded from the MalAvi website that summarize the database. Here's how you would download the table linking morphological species to genetic lineages:
-
-``` r
-morph <- extract_table("Morpho Species Summary")
-head(morph) # check it out
-#>   #no Lineage_Name         genus                   species
-#> 1   1     ACCFRA01 Leucocytozoon       Leucocytozoon toddi
-#> 2   2      ACCOP01 Leucocytozoon     Leucocytozoon mathisi
-#> 3   3       ACNI04 Leucocytozoon     Leucocytozoon mathisi
-#> 4   4      ALARV01  Haemoproteus Haemoproteus tartakovskyi
-#> 5   5      ALARV02  Haemoproteus Haemoproteus tartakovskyi
-#> 6   6      ALARV03  Haemoproteus Haemoproteus tartakovskyi
-#>           Reference_Name comment
-#> 1 Barraclough et al 2008        
-#> 2  Valkiunas et al 2010a        
-#> 3  Valkiunas et al 2010a        
-#> 4 Zehtindjiev et al 2012        
-#> 5 Zehtindjiev et al 2012        
-#> 6 Zehtindjiev et al 2012
-```
-
-The `extract_table()` help file lists all nine tables you can download directly into `R`. Or you can specify `"all"` and get them all as a list.
-
-BLAST a sequence to MalAvi
---------------------------
-
-You can BLAST your own sequences against the MalAvi database using the `blast_malavi()` function, which leverages the MalAvi website's already existing BLAST capabilities. Your input sequence just needs to be specified as a character string.
-
-``` r
-## define a sequence. This is the Plasmodium parasite ACAGR1
-ACAGR1 <- "GCAACTGGTGCTTCATTTGTATTTATT
-TTAACTTATTTACATATTTTAAGAGGATTAAATTATTC
-ATATTCATATTTACCTTTATCATGGATATCTGGATTAA
-TAATATTTTTAATATCTATAGTAACAGCTTTTATGGGT
-TACGTATTACCTTGGGGTCAAATGAGTTTCTGGGGTGC
-TACCGTAATAACTAATTTATTATATTTTATACCTGGAC
-TAGTTTCATGGATATGTGGTGGATATCTTGTAAGTGAC
-CCAACCTTAAAAAGATTCTTTGTACTACATTTTACATT
-TCCTTTTATAGCTTTATGTATTGTATTTATACATATAT
-TCTTTCTACATTTACAAGGTAGCACAAATCCTTTAGGG
-TATGATACAGCTTTAAAAATACCCTTCTATCCAAATCT
-TTTAAGTCTTGATATTAAAGGATTTAATAATGTATTAG
-TATTATTTTTAGCACAAAGTTTATTTGGAATACT"
-
-## BLAST it against the MalAvi database and save the top five hits to a data frame
-hits <- blast_malavi(ACAGR1)
-hits # check it out
-#>    Lineage Score Identities  Gaps    Strand Coverage Perfect.Match
-#> 1   ACAGR1   885    479/479 0/479 Plus/Plus      479           Yes
-#> 2     SGS1   880    478/479 0/479 Plus/Plus      479            No
-#> 3  CXPIP20   876    476/477 0/477 Plus/Plus      477            No
-#> 4     YWT4   874    477/479 0/479 Plus/Plus      479            No
-#> 5 SERCAN01   874    477/479 0/479 Plus/Plus      479            No
-```
-
-Download the MalAvi sequence alignments
----------------------------------------
-
-Using the `extract_alignment()` function, you can download all of the sequences on MalAvi, or the complete or nearly complete sequences only, or the sequences associated with morphological species only. These alignments will appear as objects of the class `DNAbin`, defined in the `ape` package.
-
-``` r
-## download all sequences
-all.seqs <- extract_alignment("all seqs")
-all.seqs #check it out
-#> 2825 DNA sequences in binary format stored in a matrix.
-#> 
-#> All sequences of same length: 479 
-#> 
-#> Labels:
-#> H_ACAED01
-#> P_ACAGR1
-#> H_ACAGR2
-#> H_ACATEN01
-#> L_ACCBRE01
-#> L_ACCBRE02
-#> ...
-#> 
-#> Base composition:
-#>     a     c     g     t 
-#> 0.294 0.133 0.135 0.438
-```
-
-The `extract_alignment()` help file lists the names of the sequence alignments that the function understands. You can also identify and remove repeated haplotypes (several typically exist due to ambiguous base pairs) in the alignments with the `clean_alignment()` function.
-
-Clean lineage names from MalAvi sequence alignments
----------------------------------------------------
-
-The lineage names in the MalAvi sequence alignments have been modified to include extra information and therefore do not match the lineage names in the rest of the database. The `clean_names()` function removes the extra information so that the sequence alignment lineage names match those in the rest of the database.
-
-For example, the lineage names in the alignment files look like this:
-
-``` r
-## lineage names are stored in the rownames of a DNAbin object
-six.names <- head(rownames(all.seqs))
-six.names
-#> [1] "H_ACAED01"  "P_ACAGR1"   "H_ACAGR2"   "H_ACATEN01" "L_ACCBRE01"
-#> [6] "L_ACCBRE02"
-```
-
-After cleaning those names, they look like this:
-
-``` r
-clean_names(six.names)
-#> [1] "ACAED01"  "ACAGR1"   "ACAGR2"   "ACATEN01" "ACCBRE01" "ACCBRE02"
-```
-
-Taxonomic key for host species
-------------------------------
-
-The package includes a taxonomic key linking (nearly all) host species names from MalAvi with the species names used in the phylogenetic analysis found on <http://birdtree.org/>. The latter species names are in a column labeled `Jetz.species` and have an underscore between the genus and species as they would appear if you were to download trees from the website. The key is stored in a data object called `taxonomy` which can be called directly once the package is loaded.
-
-``` r
-## check out taxonomic host key
-head(taxonomy)
-#>              species       Jetz.species match
-#> 1 Nectarinia sperata Nectarinia_sperata   yes
-#> 2    Prinia inornata    Prinia_inornata   yes
-#> 3 Acrocephalus aedon Acrocephalus_aedon   yes
-#> 4   Emberiza elegans   Emberiza_elegans   yes
-#> 5   Emberiza pusilla   Emberiza_pusilla   yes
-#> 6        Parus major        Parus_major   yes
-```
-
-The `taxonomy` help file notes when the comparison was made (I will update it occasionally) and lists the multiple MalAvi host species that correspond to single host species in the phylogenetic analysis (there are several).
-
-Identifying sister lineages from a given node
----------------------------------------------
-
-Phylogenetic analysis of the MalAvi lineages is difficult at the moment due to the limited sequence data available for most lineages. Often, the best one can do is to study sister lineages in the phylogeny that are linked by well supported nodes. The function `sister_taxa()` gives a list of lineages on either side of a specific node in a phylogeny.
-
-``` r
-## simulate a phylogenetic tree with 10 taxa using the rtree() function in the ape package
-library(ape)
-#> Warning: package 'ape' was built under R version 3.4.2
-tree <- rtree(n=10)
-
-## the node labels of the tree can then be examined
-plot(tree)
-nodelabels()
-```
-
-![](README-example%206a-1.png)
-
-``` r
-
-## the root of the tree has node label "11" and we can extract sister lineages from the root;
-## the sister taxa are grouped into two clades with arbitrary labels of "1" and "2"
-sis.tax.df <- sister_taxa(tree, 11)
-sis.tax.df # check it out
-#>    ancestral.node sister.clade taxa
-#> 1              11            1   t4
-#> 2              11            1   t2
-#> 3              11            1   t5
-#> 4              11            2   t9
-#> 5              11            2   t6
-#> 6              11            2   t1
-#> 7              11            2   t7
-#> 8              11            2  t10
-#> 9              11            2   t3
-#> 10             11            2   t8
-```
-
-In general, this function can be used to identify lineages for further analysis or for visualization purposes. For analyses of MalAvi data in particular, you might want to identify all pairs of sister lineages in a phylogeny. This could be done with one line (after calling the `dplyr` package):
-
-``` r
-## load dplyr package
-library(dplyr)
-
-## identify all pairs of sister lineages in the phylogenetic tree
-sister_taxa(tree, 1:tree$Nnode + length(tree$tip.label)) %>% 
-  group_by(ancestral.node) %>% 
-  mutate(no.lins = length(unique(taxa))) %>% 
-  filter(no.lins == 2) %>% 
-  select(-no.lins) %>% 
-  as.data.frame
-#>   ancestral.node sister.clade taxa
-#> 1             13            1   t2
-#> 2             13            2   t5
-#> 3             19            1   t7
-#> 4             19            2  t10
-```
-
-Reporting Issues
-----------------
-
-Please report any issues with the package [here](https://github.com/vincenzoaellis/malaviR/issues).
+Please report problems at
+<https://github.com/vincenzoaellis/malaviR/issues>.

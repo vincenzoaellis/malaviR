@@ -1,0 +1,116 @@
+---
+title: "Using malaviR"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Using malaviR}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(malaviR)
+```
+
+`malaviR` gives you access to the [MalAvi](http://mbio-serv2.mbioekol.lu.se/Malavi/)
+database of avian haemosporidian parasite lineages. Because MalAvi is no longer a
+live website, the database is **bundled with the package** as a dated snapshot and
+everything below works offline.
+
+## Which database version am I using?
+
+```{r}
+malavi_version()
+malavi_versions()
+```
+
+## The data tables
+
+There are five tables; ask for one by name (or `"all"` for a list of all five):
+
+```{r}
+hosts <- extract_table("Hosts and Sites Table")
+dim(hosts)
+colnames(hosts)[1:6]
+```
+
+## The sequence alignment
+
+`extract_alignment()` returns the cytochrome *b* alignment as an `ape::DNAbin`
+object, optionally subset by parasite genus:
+
+```{r}
+aln <- extract_alignment()
+aln
+plasmodium <- extract_alignment(genus = "Plasmodium")
+plasmodium
+```
+
+## Repeated haplotypes (synonymies)
+
+Different MalAvi names are sometimes given to the same sequence. This inflates
+estimates of parasite diversity, an issue documented by
+[Tamayo-Quintero et al. (2025)](https://doi.org/10.1371/journal.ppat.1012911).
+`synonymy_report()` quantifies it and lists the lineages to investigate:
+
+```{r}
+report <- synonymy_report(method = "strict")
+report$summary
+head(report$synonymies)
+```
+
+The default `method = "overlap"` is more thorough — it also collapses short,
+partial sequences that are identical to a longer one over the region they
+overlap — but is slower on the full alignment.
+
+`clean_alignment()` produces a de-duplicated alignment. It keeps the most complete
+sequence in each group by default, and you can override that with `keep`:
+
+```{r}
+clean <- clean_alignment(aln, method = "strict")
+length(clean$dropped)
+clean$alignment_clean
+```
+
+## Local BLAST-like search
+
+`blast_malavi()` searches a query sequence against the bundled alignment and
+returns the most similar lineages. It uses the Bioconductor packages **DECIPHER**
+(>= 3.0) and **Biostrings**, so it is shown here but not run:
+
+```{r, eval = FALSE}
+query <- gsub("-", "", paste(as.character(aln[1, ]), collapse = ""))
+blast_malavi(query, top_n = 5)
+```
+
+## Host taxonomy
+
+`match_taxonomy()` aligns host species names to the modern
+[clootl](https://github.com/McTavishLab/clootl) (eBird) avian taxonomy. Names that
+cannot match a single species (synonyms, hybrids, `sp.`) are flagged rather than
+forced:
+
+```{r}
+res <- match_taxonomy(c("Turdus merula", "Cyanistes caeruleus", "Anas sp."))
+res$key
+```
+
+The pre-built crosswalk for every MalAvi host is bundled as `taxonomy`:
+
+```{r}
+data(taxonomy)
+head(taxonomy)
+table(taxonomy$match_type)
+```
+
+## Working with phylogenies
+
+`clean_names()` strips the genus prefix from alignment tip labels so they match
+the data tables, and `sister_taxa()` returns the sister tips at a node:
+
+```{r}
+clean_names(c("H_COLL2", "P_GRW4", "L_CIAE02"))
+
+tree <- ape::read.tree(text = "((A,B),(C,(D,E)));")
+sister_taxa(tree, node = 8)
+```

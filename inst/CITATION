@@ -1,0 +1,35 @@
+citHeader("To cite malaviR in publications, please cite the package and Ellis & Bensch (2018):")
+
+bibentry(
+  bibtype = "Manual",
+  title   = "malaviR: An R interface to MalAvi",
+  author  = c(person("Vincenzo A.", "Ellis"),
+              person("Staffan", "Bensch"),
+              person("Bjorn", "Canback")),
+  year    = "2026",
+  note    = "R package version 1.0.0",
+  url     = "https://github.com/vincenzoaellis/malaviR"
+)
+
+bibentry(
+  bibtype = "Article",
+  title   = "Host specificity of avian haemosporidian parasites is unrelated among sister lineages but shows phylogenetic signal across larger clades",
+  author  = c(person("Vincenzo A.", "Ellis"), person("Staffan", "Bensch")),
+  journal = "International Journal for Parasitology",
+  year    = "2018",
+  volume  = "48",
+  pages   = "897--902",
+  doi     = "10.1016/j.ijpara.2018.05.005"
+)
+
+bibentry(
+  bibtype = "Article",
+  title   = "MalAvi: a public database of malaria parasites and related haemosporidians in avian hosts based on mitochondrial cytochrome b lineages",
+  author  = c(person("Staffan", "Bensch"), person("Olof", "Hellgren"),
+              person("Javier", "Perez-Tris")),
+  journal = "Molecular Ecology Resources",
+  year    = "2009",
+  volume  = "9",
+  pages   = "1353--1358",
+  doi     = "10.1111/j.1755-0998.2009.02692.x"
+)
