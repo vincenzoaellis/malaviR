@@ -1,6 +1,6 @@
 #' Get a MalAvi data table
 #'
-#' Returns one of the MalAvi data tables from the database snapshot bundled in
+#' Returns one of the MalAvi data tables from the database bundled in
 #' the package. MalAvi is no longer downloaded from the web; the tables come from
 #' the release shipped with \code{malaviR} (see \code{\link{malavi_version}}).
 #'
@@ -27,6 +27,9 @@
 #' head(hosts)
 #' @export
 extract_table <- function(table = "Hosts and Sites Table", version = "latest") {
+  if (length(table) != 1L) {
+    stop('\'table\' must be a single table name (or "all").', call. = FALSE)
+  }
   ## map descriptive names (and the snake_case keys) to the bundled list elements
   lookup <- c(
     "Hosts and Sites Table"  = "hosts_and_sites",

@@ -1,9 +1,10 @@
 #' Identify the sister taxa at a node in a phylogeny
 #'
 #' For an internal node, returns the tips descending from each of its two
-#' immediate child clades, labelled as sister clade 1 or 2. This is useful, for
-#' example, for comparing the hosts or traits of sister lineages in a parasite
-#' phylogeny (Ellis & Bensch 2018). One or several nodes may be supplied.
+#' immediate descendant clades, labelled as sister clade 1 or 2. This is useful,
+#' for example, for comparing the hosts or traits of sister lineages in a
+#' parasite phylogeny (Ellis and Bensch 2018). One or several nodes may be
+#' supplied.
 #'
 #' @param tree A phylogeny of class \code{phylo} (see \pkg{ape}).
 #' @param node An internal node number, or a vector of node numbers. For a vector,

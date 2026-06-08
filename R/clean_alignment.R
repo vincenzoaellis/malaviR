@@ -1,37 +1,40 @@
 #' Identify and collapse repeated haplotypes in a MalAvi alignment
 #'
-#' Different MalAvi lineage names are sometimes assigned to the same sequence
-#' ("synonymies"), which inflates estimates of parasite diversity, especially
-#' when short, partial sequences are involved (Tamayo-Quintero et al. 2025). This
-#' function finds groups of lineages that share a haplotype, returns a table of
-#' those synonymies, and produces a de-duplicated alignment that keeps one
-#' lineage per group.
+#' Shorter MalAvi lineages (i.e., < 479 bp) sometimes match perfectly to longer
+#' sequences that have different lineage names ("synonymies"), and it has been
+#' pointed out in the literature that this inflates estimates of parasite
+#' diversity (Tamayo-Quintero et al. 2025). This function finds groups of
+#' lineages that share a haplotype, returns a table of those synonymies, and
+#' produces a de-duplicated alignment that keeps one lineage per group.
 #'
-#' By default this function is deterministic: the most complete sequence in each
-#' group is kept (ties broken alphabetically). Set \code{select = "random"} for
-#' the quick, non-deterministic behaviour of earlier \code{malaviR} versions,
-#' which keep one lineage per group at random (call \code{\link{set.seed}} first
-#' for reproducibility). In either case, supply \code{keep} to override the choice
-#' for specific groups; any group without a supplied choice falls back to the
-#' \code{select} rule.
+#' By default this function is deterministic: the most complete (i.e., longest)
+#' sequence in each group is kept (ties broken alphabetically). Set
+#' \code{select = "random"} for the quick random selection of the earlier
+#' \code{malaviR} version, which keeps one lineage per group at random (call
+#' \code{\link{set.seed}} first for reproducibility). In either case, supply
+#' \code{keep} to override the choice for specific groups (i.e., if you want to
+#' choose particular lineages to represent a haplotype group); any group without
+#' a supplied choice falls back to the \code{select} rule.
 #'
 #' Two definitions of "same haplotype" are available via \code{method}:
 #' \describe{
-#'   \item{\code{"strict"} (default)}{sequences identical across the whole
-#'     alignment, including gaps -- the behaviour of the original function.}
-#'   \item{\code{"overlap"}}{additionally collapses a partial sequence into any
+#'   \item{\code{"overlap"} (default)}{collapses a partial sequence into any
 #'     strictly more complete sequence that is identical to it over the partial's
-#'     informative (non-gap/non-\code{N}) positions. This catches the
-#'     partial-sequence synonymies highlighted by Tamayo-Quintero et al. (2025),
-#'     but is slower on large alignments.}
+#'     informative (non-gap/non-\code{N}) positions, in addition to collapsing
+#'     fully identical sequences. This catches the partial-sequence synonymies
+#'     highlighted by Tamayo-Quintero et al. (2025), but is slower on large
+#'     alignments.}
+#'   \item{\code{"strict"}}{collapses only sequences that are identical across the
+#'     whole alignment, including gaps -- the behavior of the original function
+#'     from the earlier \code{malaviR} version.}
 #' }
 #' The \code{informative_length} column (count of A/C/G/T bases) helps flag the
 #' short, partial sequences at the heart of the problem.
 #'
 #' @param alignment A \code{DNAbin} alignment (e.g. from
 #'   \code{\link{extract_alignment}}).
-#' @param method How to define a repeated haplotype: \code{"strict"} (default) or
-#'   \code{"overlap"} (see Details).
+#' @param method How to define a repeated haplotype: \code{"overlap"} (default)
+#'   or \code{"strict"} (see Details).
 #' @param select How to pick the lineage kept from each synonymy group when it is
 #'   not named in \code{keep}: \code{"complete"} (default) keeps the most complete
 #'   sequence (ties broken alphabetically); \code{"random"} keeps one at random
@@ -65,7 +68,7 @@
 #' set.seed(1)
 #' res_rand <- clean_alignment(aln, select = "random")
 #' @export
-clean_alignment <- function(alignment, method = c("strict", "overlap"),
+clean_alignment <- function(alignment, method = c("overlap", "strict"),
                             select = c("complete", "random"), keep = NULL) {
   method <- match.arg(method)
   select <- match.arg(select)

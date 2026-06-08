@@ -22,7 +22,7 @@ A \code{DNAbin} alignment, optionally subset by genus.
 }
 \description{
 Returns the aligned MalAvi cytochrome \emph{b} sequences from the database
-snapshot bundled in the package, as a \code{DNAbin} object. MalAvi is no longer
+bundled in the package, as a \code{DNAbin} object. MalAvi is no longer
 downloaded from the web; the alignment comes from the release shipped with
 \code{malaviR} (see \code{\link{malavi_version}}).
 }
@@ -30,7 +30,9 @@ downloaded from the web; the alignment comes from the release shipped with
 Lineage names are prefixed by parasite genus: \code{P_} (\emph{Plasmodium}),
 \code{H_} (\emph{Haemoproteus}), \code{L_} (\emph{Leucocytozoon}); any other
 prefix is treated as \code{"other"}. Use \code{genus} to subset the alignment
-to one or more genera.
+to one or more genera. Note that some tip labels also carry a morphological
+species name appended after the lineage code (e.g.
+\code{"H_COLL2_Haemoproteus_pallidus"}).
 }
 \examples{
 aln <- extract_alignment()

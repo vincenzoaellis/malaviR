@@ -19,6 +19,9 @@ test_that("extract_table returns tables and errors on a bad name", {
 
   ## bad name is an error, not a message (issue #1)
   expect_error(extract_table("not a real table"), "choose one")
+
+  ## a non-scalar 'table' is rejected with a clear message
+  expect_error(extract_table(c("references", "vector_data")), "single table name")
 })
 
 test_that("extract_alignment returns a DNAbin and subsets by genus", {

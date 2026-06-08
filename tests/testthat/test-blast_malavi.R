@@ -17,8 +17,12 @@ test_that("blast_malavi finds an exact MalAvi sequence as its top hit", {
   res <- blast_malavi(query, top_n = 3)
   expect_s3_class(res, "data.frame")
   expect_equal(nrow(res), 3)
+  expect_true(all(c("Lineage", "ProportionMatch", "PercentMatch", "AlignmentLength",
+                    "Matches", "Mismatches", "Score", "QueryGapLength",
+                    "ReferenceLineageLength", "ReferenceFullLength") %in% names(res)))
   expect_identical(res$Lineage[1], rownames(aln)[1])
   expect_equal(res$PercentMatch[1], 100)
+  expect_true(res$ReferenceFullLength[1] > 0)
 })
 
 test_that("blast_malavi warns and returns NA row when there are no hits", {

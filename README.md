@@ -1,16 +1,17 @@
 # malaviR
 
+<!-- badges: start -->
+[![r-universe status](https://vincenzoaellis.r-universe.dev/badges/malaviR)](https://vincenzoaellis.r-universe.dev/malaviR)
+<!-- badges: end -->
+
 An R interface to [MalAvi](https://wimanet-science.github.io/web/malavi/), the public
 database of avian haemosporidian (malaria and related) parasite mtDNA cytochrome
 *b* lineages.
 
-> **Note on this release.** MalAvi is no longer hosted as a queryable website, so
-> the functions that used to download data from the MalAvi server no longer work.
-> This version of `malaviR` instead **bundles a dated snapshot of the MalAvi
-> database** (tables and the sequence alignment) inside the package, and provides
-> a local, BLAST-like search to replace the old online BLAST. I used Claude Code
-> (Opus 4.8) to rewrite the package. I believe everything is working as expected,
-> but please open an issue if you find mistakes.
+> **Note on this release.** MalAvi is no longer hosted at a permanent web address (although it will be soon). The
+> functions in the first version of `malaviR`  downloaded data from the MalAvi server / web address. Since that is no longer an option,
+> I wanted to update `malaviR`, so that it would be useful again. Staffan Bensch (the creator and maintainer of MalAvi) has been emailing out the latest versions of the database to users, so what I've done is to bundle those database files with `malaviR`. For BLAST functions,  I'm using the code from a [Shiny app I developed](https://wimanet-science.github.io/web/malavi/blast/), which uses `DECIPHER` to create a BLAST-like functionality. There are also a few new helper functions here. This is something that I've wanted to do for a while, but have not had the time. So I decided to experiment with Claude Code
+> (Opus 4.8) as a helper to more quickly rewrite the `malaviR` package. It was incredibly fast, and I think all the functions behave properly. But I'm still testing them and working on the description files. If you spot anything that should be changed or fixed, please do let me know either by opening an issue here or email me directly (vaellis@udel.edu).
 
 ## Installation
 
@@ -26,67 +27,56 @@ packages:
 # for blast_malavi() — local BLAST-like search (needs R >= 4.4)
 # install.packages("BiocManager")
 BiocManager::install(c("DECIPHER", "Biostrings"))
-
-# clootl is only needed to *rebuild* the bundled taxonomy, not to use it
-install.packages("clootl")
 ```
 
 ## What's in the package
 
-The bundled database is identified by its release date (e.g. `2026-03-23`).
+The bundled database is identified by its release date (e.g. the most recent one as of the update of this package is `2026-03-23`).
 
 ```r
 library(malaviR)
 
-malavi_version()        # release date of the bundled MalAvi snapshot
-malavi_version("all")   # all bundled releases
+malavi_version()        # release date of the bundled MalAvi database that the package is currently using
+malavi_version("all")   # all bundled releases...I will keep some older versions of the database here and this is how you can see them
 ```
 
 ### Data tables and the alignment
 
 ```r
-hosts <- extract_table("Hosts and Sites Table")   # one of five MalAvi tables
-aln   <- extract_alignment()                       # the cyt-b alignment (DNAbin)
-plas  <- extract_alignment(genus = "Plasmodium")   # subset by parasite genus
+hosts_dat <- extract_table("Hosts and Sites Table")   # one of the five MalAvi tables you can access
+aln   <- extract_alignment()                       # the cyt b alignment (it's stored as a DNAbin object)
+plas  <- extract_alignment(genus = "Plasmodium")   # you can filter the alignment by parasite genus
 ```
 
-### Local BLAST-like search
+### BLAST-like search
 
-`blast_malavi()` searches a query sequence against the bundled MalAvi alignment
-using a pre-built [DECIPHER](https://decipher.codes/) index, returning the most
-similar lineages. (Requires DECIPHER >= 3.0 and Biostrings.)
+`blast_malavi()` searches a query sequence that the user provides against the MalAvi alignment
+using a pre-built [DECIPHER](https://decipher.codes/) index (Requires DECIPHER >= v3.0 and Biostrings.)
 
 ```r
-query <- gsub("-", "", paste(as.character(aln[1, ]), collapse = ""))
-blast_malavi(query, top_n = 5)
+query <- gsub("-", "", paste(as.character(aln[1, ]), collapse = "")) # here we just select the first sequence in the MalAvi alignment to BLAST, but this is designed for you putting in your own sequences as a character string.
+blast_malavi(query, top_n = 5) # here's your BLAST-like output
 ```
 
 ### Repeated haplotypes ("synonymies")
 
-Some incomplete MalAvi sequences match longer sequences but retain different
-lineage names. This can inflate estimates of parasite lineage diversity
+Some incomplete MalAvi sequences (i.e., < 479 bp) match longer sequences but retain different
+lineage names. This can inflate estimates of parasite lineage diversity as pointed out recently
 ([Tamayo-Quintero et al. 2025](https://doi.org/10.1371/journal.ppat.1012911)).
-`synonymy_report()` quantifies the problem and points to the lineages to check;
+`synonymy_report()` quantifies the problem and identifies the overlapping lineages ("synonymies");
 `clean_alignment()` produces a de-duplicated alignment, letting you choose which
-name to keep. By default it keeps the most complete sequence in each group
-(deterministic); use `select = "random"` for a quick random pick, or `keep =` to
-override specific groups (see `?clean_alignment`).
+name to keep (this function was present already in the old `malaviR`, but it has been rewritten). By default `clean_alignment()` keeps the most complete sequence (i.e., the longest ignoring Ns) in each group (`method = "overlap"`), but you can also choose which of the sequences in the overlap groups you want to keep (`keep = `). In the old version, you could randomly select from the overlapping haplotypes. That's probably not very useful, but in case you are nostalgic about it, I've included a random selector in the new version (`select = "random"`). See `?clean_alignment` for more details.
 
 ```r
-synonymy_report()$summary             # how many names share a haplotype
-res <- clean_alignment(aln, method = "overlap")   # keeps most complete per group
-head(res$synonymies)
-
-set.seed(1)
-res_rand <- clean_alignment(aln, select = "random")   # quick random pick
+synonymy_report()$summary             # how many names share a haplotype (i.e., shorter sequences that match longer sequences completely)
+res <- clean_alignment(aln, method = "overlap")   # keeps most complete (i.e., longest) lineage per haplotype group (synonymy group)
 ```
 
 ### Host taxonomy
 
-`match_taxonomy()` aligns MalAvi host species names to the modern
-[clootl](https://github.com/eliotmiller/clootl) (eBird) avian taxonomy and flags
-names that don't match (synonyms, hybrids, `sp.`, etc.). The pre-built crosswalk
-for all MalAvi hosts is bundled as the `taxonomy` dataset.
+`match_taxonomy()` aligns MalAvi host species names to the taxonomy provided with the
+[clootl](https://github.com/eliotmiller/clootl) package (i.e., eBird taxonomy) and it flags
+names that don't match (synonyms, hybrids, `sp.`, etc.). The pre-built taxonomic key linking MalAvi to the `clootl` names is kept in the package as the `taxonomy` dataset. So you won't need to use `match_taxonomy` necessarily, but I keep it here because it should be useful updating the taxonomic key with each new update of MalAvi.
 
 ```r
 match_taxonomy(c("Turdus merula", "Anas sp."))$key
@@ -95,14 +85,15 @@ data(taxonomy)
 
 ### Phylogenies
 
-`sister_taxa()` returns the tips descending from each child clade at a node, and
-`clean_names()` strips the genus prefix from alignment tip labels.
+`sister_taxa()` returns the sister tips descending from nodes in a phylogeny. It was in the old version of `malaviR` and I've kept it here unchanged even though it more or less overlaps with functions in other phylogenetics R packges.
+
+`clean_names()` strips the genus prefix from alignment tip labels. This was also in the older version of `malaviR` and can be useful for linking the alignment to the tables (alignment uses the genus prefix, tables do not).
 
 ## Updating the bundled database
 
-When a new MalAvi release arrives (a `MalAvi_<date>.zip`), maintainers drop it in
+When a new MalAvi release arrives (a `MalAvi_<date>.zip`), I will put it in
 `data-raw/` and run `data-raw/process_release.R` to regenerate the bundled data
-and BLAST index, then commit and push.
+and BLAST index and then I'll push it to github.
 
 ## Citation
 
@@ -115,6 +106,8 @@ If you use `malaviR`, please cite the package and:
 * Bensch S, Hellgren O, Pérez-Tris J (2009). MalAvi: a public database of malaria
   parasites and related haemosporidians in avian hosts based on mitochondrial
   cytochrome *b* lineages. *Molecular Ecology Resources* **9**: 1353–1358.
+
+The first citation (Ellis and Bensch 2018) was what I originally wrote `malaviR` for. The second (Bensch et al. 2009) is, of course, the citation for the MalAvi database.
 
 ```r
 citation("malaviR")

@@ -1,19 +1,25 @@
 #' MalAvi host species matched to the clootl (eBird) taxonomy
 #'
-#' A crosswalk between the unique host species names in the bundled MalAvi
-#' \dQuote{Hosts and Sites Table} and the modern avian taxonomy used by the
-#' \pkg{clootl} package (the eBird/Clements taxonomy underlying the McTavish et
-#' al. avian phylogeny). It is produced by \code{\link{match_taxonomy}} and
-#' replaces the earlier crosswalk to the 2012 Jetz et al. (\url{birdtree.org})
-#' phylogeny used in older versions of \code{malaviR}.
+#' A key linking the unique host species names in the bundled MalAvi
+#' \dQuote{Hosts and Sites Table} to the avian taxonomy used by the \pkg{clootl}
+#' package (the eBird/Clements taxonomy underlying the McTavish et al. 2025 avian
+#' phylogeny). It is produced by \code{\link{match_taxonomy}}.
 #'
 #' The bundled clootl taxonomy year is reported by
-#' \code{\link{clootl_taxonomy_version}}. Rows with \code{match_type == "exact"}
-#' matched an eBird scientific name directly; \code{"synonym:*"} matched via the
-#' IOC, BirdLife, or Howard & Moore names that clootl carries; \code{"generic"}
-#' are names that cannot map to a single species (e.g. ending in \dQuote{sp.} or
-#' hybrids); and \code{"none"} are binomials with no match in the bundled
-#' taxonomy.
+#' \code{\link{clootl_taxonomy_version}}. The \code{match_type} column records how
+#' each name matched: \code{"manual"} was hand-resolved by the package maintainer
+#' (\code{data-raw/manual_taxonomy.csv}); \code{"exact"} matched an eBird
+#' scientific name directly;
+#' \code{"synonym:IOC"}, \code{"synonym:BirdLife"}, and
+#' \code{"synonym:HowardMoore"} matched via the IOC, BirdLife, or Howard & Moore
+#' names that clootl carries; \code{"reassigned:family"} and
+#' \code{"reassigned:order"} matched by specific epithet (allowing for Latin
+#' gender agreement) within the host's MalAvi family or order, recovering genus
+#' reassignments; \code{"legacy"} matched via the hand-curated key from the
+#' original \code{malaviR} (an old, possibly out-of-date choice worth
+#' double-checking); \code{"generic"} are names that cannot map to a single
+#' species (e.g. ending in \dQuote{sp.} or hybrids); and \code{"none"} are
+#' binomials with no match in the bundled taxonomy.
 #'
 #' @format A data frame with one row per unique MalAvi host species and the
 #'   following columns:
@@ -23,10 +29,17 @@
 #'   \item{ott_name}{matching tip label in the clootl phylogeny, or \code{NA}.}
 #'   \item{order}{taxonomic order of the matched species, or \code{NA}.}
 #'   \item{family}{taxonomic family of the matched species, or \code{NA}.}
-#'   \item{match_type}{how the name matched: \code{"exact"}, \code{"synonym:IOC"},
-#'     \code{"synonym:BirdLife"}, \code{"synonym:HowardMoore"}, \code{"generic"},
-#'     or \code{"none"}.}
+#'   \item{match_type}{how the name matched: \code{"manual"}, \code{"exact"},
+#'     \code{"synonym:IOC"}, \code{"synonym:BirdLife"},
+#'     \code{"synonym:HowardMoore"}, \code{"reassigned:family"},
+#'     \code{"reassigned:order"}, \code{"legacy"}, \code{"generic"}, or
+#'     \code{"none"}.}
 #' }
+#' @references
+#' McTavish EJ, Gerbracht JA, Holder MT, Iliff MJ, Lepage D, Rasmussen PC,
+#' Redelings BD, Sanchez Reyes LL, Miller ET (2025). A complete and dynamic tree
+#' of birds. Proceedings of the National Academy of Sciences 122(18):
+#' e2409658122. \doi{10.1073/pnas.2409658122}
 #' @seealso \code{\link{match_taxonomy}}, \code{\link{clootl_taxonomy_version}}
 #' @source MalAvi (\url{https://wimanet-science.github.io/web/malavi/}) host species
 #'   matched to the clootl taxonomy (\url{https://github.com/eliotmiller/clootl}).

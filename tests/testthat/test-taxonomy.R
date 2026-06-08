@@ -18,6 +18,41 @@ test_that("match_taxonomy matches exact names and flags unmatchable ones", {
   expect_false(any(res$differences$match_type == "exact"))
 })
 
+test_that("match_taxonomy recovers a genus reassignment within the host family", {
+  res <- match_taxonomy("Anas clypeata", family = "Anatidae",
+                        order = "Anseriformes")
+  row <- res$key[1, ]
+  expect_equal(row$ebird_species, "Spatula clypeata")
+  expect_equal(row$match_type, "reassigned:family")
+})
+
+test_that("match_taxonomy leaves an epithet ambiguous within family unmatched", {
+  ## 'americana' is shared by Mareca americana and Aythya americana in Anatidae;
+  ## Querquedula is an old duck genus not in the override/legacy keys
+  res <- match_taxonomy("Querquedula americana", family = "Anatidae",
+                        order = "Anseriformes")
+  expect_equal(res$key$match_type[1], "none")
+})
+
+test_that("match_taxonomy applies a maintainer manual override", {
+  res <- match_taxonomy("Anas americana")
+  row <- res$key[1, ]
+  expect_equal(row$ebird_species, "Mareca americana")
+  expect_equal(row$match_type, "manual")
+})
+
+test_that("match_taxonomy flags 'spp' as generic", {
+  res <- match_taxonomy("Somateria spp")
+  expect_equal(res$key$match_type[1], "generic")
+})
+
+test_that("match_taxonomy bridges a name via the legacy hand-curated key", {
+  expect_message(res <- match_taxonomy("Buarremon basilicus"), "legacy")
+  row <- res$key[res$key$malavi_species == "Buarremon basilicus", ]
+  expect_equal(row$ebird_species, "Arremon torquatus")
+  expect_equal(row$match_type, "legacy")
+})
+
 test_that("clootl_taxonomy_version returns a year", {
   yr <- clootl_taxonomy_version()
   expect_true(is.numeric(yr))

@@ -3,17 +3,12 @@ Type: Package
 Title: An R interface to MalAvi
 Version: 1.0.0
 Authors@R: c(
-    person("Vincenzo A", "Ellis", email = "vincenzoaellis@gmail.com", role = c("aut", "cre")),
+    person("Vincenzo A", "Ellis", email = "vaellis@udel.edu", role = c("aut", "cre")),
     person("Staffan", "Bensch", email = "staffan.bensch@biol.lu.se", role = "aut"),
     person("Bjorn", "Canback", email = "bjorn.canback@biol.lu.se", role = "aut"))
-Maintainer: Vincenzo A. Ellis <vincenzoaellis@gmail.com>
+Maintainer: Vincenzo A. Ellis <vaellis@udel.edu>
 Description: Functions for working with data from the MalAvi database of avian
-    haemosporidian parasites. The MalAvi website is no longer available online,
-    so the database tables and sequence alignment are bundled with the package
-    as dated release snapshots. Tools are provided to read those tables and
-    alignments, run a local BLAST-like search of a sequence against MalAvi,
-    clean repeated haplotypes from an alignment, and relate host taxonomy to a
-    modern avian taxonomy.
+    haemosporidian parasites.
 License: GPL-2
 Encoding: UTF-8
 LazyData: true

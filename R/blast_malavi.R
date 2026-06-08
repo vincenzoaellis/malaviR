@@ -1,11 +1,9 @@
 #' BLAST-like search of a sequence against MalAvi
 #'
-#' Finds the MalAvi lineages most similar to a query DNA sequence, offline,
-#' against the database snapshot bundled in the package. This replaces the old
-#' online MalAvi BLAST (the MalAvi web server is no longer available) with a
-#' local search built on \pkg{DECIPHER}: the bundled, pre-built inverted index is
-#' searched with \code{DECIPHER::SearchIndex} and the top hits are aligned to the
-#' query with \code{DECIPHER::AlignPairs}.
+#' Finds the MalAvi lineages most similar to a query DNA sequence against the
+#' database bundled in the package. This uses \pkg{DECIPHER}: the bundled,
+#' pre-built inverted index is searched with \code{DECIPHER::SearchIndex} and the
+#' top hits are aligned to the query with \code{DECIPHER::AlignPairs}.
 #'
 #' \pkg{DECIPHER} (>= 3.0) and \pkg{Biostrings} are required and must be
 #' installed from Bioconductor:
@@ -19,9 +17,14 @@
 #'   \code{"2026-03-23"}) or \code{"latest"} (default).
 #' @return A \code{data.frame} of hits, best first, with columns \code{Lineage},
 #'   \code{ProportionMatch}, \code{PercentMatch}, \code{AlignmentLength},
-#'   \code{Matches}, \code{Mismatches}, \code{Score}, \code{QueryGapLength}, and
-#'   \code{ReferenceLineageLength}. If no hits are found, a one-row data frame of
-#'   \code{NA}s is returned with a warning.
+#'   \code{Matches}, \code{Mismatches}, \code{Score}, \code{QueryGapLength},
+#'   \code{ReferenceLineageLength}, and \code{ReferenceFullLength}.
+#'   \code{ReferenceLineageLength} is the position in the reference lineage where
+#'   the alignment ends (as reported by the original MalAvi BLAST app), whereas
+#'   \code{ReferenceFullLength} is the full length of the reference lineage
+#'   sequence; the two differ when the query aligns to only part of a reference.
+#'   If no hits are found, a one-row data frame of \code{NA}s is returned with a
+#'   warning.
 #' @seealso \code{\link{extract_alignment}}
 #' @examples
 #' \dontrun{
@@ -68,7 +71,8 @@ blast_malavi <- function(sequence, top_n = 5, version = "latest") {
     warning("No hits found: check your input sequence")
     return(data.frame(Lineage = NA, ProportionMatch = NA, PercentMatch = NA,
                       AlignmentLength = NA, Matches = NA, Mismatches = NA,
-                      Score = NA, QueryGapLength = NA, ReferenceLineageLength = NA))
+                      Score = NA, QueryGapLength = NA, ReferenceLineageLength = NA,
+                      ReferenceFullLength = NA))
   }
 
   ## keep the top_n hits by score
@@ -92,6 +96,7 @@ blast_malavi <- function(sequence, top_n = 5, version = "latest") {
     Score                  = aln$Score,
     QueryGapLength         = query_gap,
     ReferenceLineageLength = aln$SubjectEnd,
+    ReferenceFullLength    = Biostrings::width(db)[aln$Subject],
     stringsAsFactors       = FALSE
   )
   out <- out[order(out$Score, decreasing = TRUE), ]

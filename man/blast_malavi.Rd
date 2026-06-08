@@ -18,17 +18,20 @@ gap (\code{-}) characters are removed; the sequence may be upper or lower case.}
 \value{
 A \code{data.frame} of hits, best first, with columns \code{Lineage},
   \code{ProportionMatch}, \code{PercentMatch}, \code{AlignmentLength},
-  \code{Matches}, \code{Mismatches}, \code{Score}, \code{QueryGapLength}, and
-  \code{ReferenceLineageLength}. If no hits are found, a one-row data frame of
-  \code{NA}s is returned with a warning.
+  \code{Matches}, \code{Mismatches}, \code{Score}, \code{QueryGapLength},
+  \code{ReferenceLineageLength}, and \code{ReferenceFullLength}.
+  \code{ReferenceLineageLength} is the position in the reference lineage where
+  the alignment ends (as reported by the original MalAvi BLAST app), whereas
+  \code{ReferenceFullLength} is the full length of the reference lineage
+  sequence; the two differ when the query aligns to only part of a reference.
+  If no hits are found, a one-row data frame of \code{NA}s is returned with a
+  warning.
 }
 \description{
-Finds the MalAvi lineages most similar to a query DNA sequence, offline,
-against the database snapshot bundled in the package. This replaces the old
-online MalAvi BLAST (the MalAvi web server is no longer available) with a
-local search built on \pkg{DECIPHER}: the bundled, pre-built inverted index is
-searched with \code{DECIPHER::SearchIndex} and the top hits are aligned to the
-query with \code{DECIPHER::AlignPairs}.
+Finds the MalAvi lineages most similar to a query DNA sequence against the
+database bundled in the package. This uses \pkg{DECIPHER}: the bundled,
+pre-built inverted index is searched with \code{DECIPHER::SearchIndex} and the
+top hits are aligned to the query with \code{DECIPHER::AlignPairs}.
 }
 \details{
 \pkg{DECIPHER} (>= 3.0) and \pkg{Biostrings} are required and must be

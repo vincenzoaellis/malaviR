@@ -50,10 +50,38 @@ clootl_ref <- data.frame(
 )
 clootl_year <- as.integer(clootl_year)
 
+## --- legacy bridge: the original malaviR hand-curated key (MalAvi name ->
+## corrected binomial). Kept only where the curator changed the name; used by
+## match_taxonomy() as a last-resort lookup for names nothing else resolves. ----
+legacy_env <- new.env()
+load("data-raw/original_taxonomy_key.rda", envir = legacy_env)
+oldkey <- legacy_env$taxonomy
+oldkey$jetz <- gsub("_", " ", oldkey$Jetz.species)
+keep <- !is.na(oldkey$jetz) & oldkey$jetz != oldkey$species & oldkey$species != ""
+legacy_key <- stats::setNames(oldkey$jetz[keep], oldkey$species[keep])
+legacy_key <- legacy_key[!duplicated(names(legacy_key))]
+
+## --- manual overrides: the maintainer-curated key of MalAvi host names that
+## have been hand-resolved to a current eBird species. Edit
+## data-raw/manual_taxonomy.csv to add more; targets are checked against the
+## bundled clootl taxonomy below. ----------------------------------------------
+manual <- utils::read.csv("data-raw/manual_taxonomy.csv", stringsAsFactors = FALSE)
+manual <- manual[!is.na(manual$ebird_species) & trimws(manual$ebird_species) != "", ]
+manual_key <- stats::setNames(trimws(manual$ebird_species), trimws(manual$malavi_species))
+manual_key <- manual_key[!duplicated(names(manual_key))]
+bad <- manual_key[!manual_key %in% clootl_ref$SCI_NAME]
+if (length(bad) > 0) {
+  warning("manual_taxonomy.csv: ", length(bad),
+          " target name(s) are not in the clootl taxonomy and will not match: ",
+          paste(unique(bad), collapse = ", "))
+}
+
 ## --- write internal data, then load the package so match_taxonomy() sees it ---
-save(clootl_ref, clootl_year, file = "R/sysdata.rda", compress = "xz")
+save(clootl_ref, clootl_year, legacy_key, manual_key,
+     file = "R/sysdata.rda", compress = "xz")
 message("Wrote R/sysdata.rda (clootl_ref: ", nrow(clootl_ref), " rows, year ",
-        clootl_year, ")")
+        clootl_year, "; legacy_key: ", length(legacy_key),
+        "; manual_key: ", length(manual_key), " entries)")
 
 suppressMessages(devtools::load_all(quiet = TRUE))
 

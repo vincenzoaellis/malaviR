@@ -1,12 +1,10 @@
-#' Quantify MalAvi haplotype synonymies and point to them for investigation
+#' Quantify MalAvi haplotype synonymies for investigation
 #'
-#' Summarises how many MalAvi lineage names share a haplotype with another name
-#' -- the "synonymies" that bias estimates of parasite diversity (Tamayo-Quintero
-#' et al. 2025) -- and returns the offending groups so they can be investigated
-#' by hand. By default it reports on the bundled MalAvi alignment using the
-#' overlap-aware definition of a haplotype (which also catches short, partial
-#' sequences identical to a longer one), but any alignment and either method may
-#' be used.
+#' Summarizes how many lineage names share a haplotype with another name and
+#' returns the lineage names in groups so they can be examined. By default it
+#' reports on the bundled MalAvi alignment using the overlap-aware definition of
+#' a haplotype (which catches short, partial sequences identical to a longer
+#' one), but any alignment and either method may be used.
 #'
 #' This is a reporting companion to \code{\link{clean_alignment}}: use this to see
 #' the size of the problem and which lineages to check, and \code{clean_alignment}
@@ -14,16 +12,15 @@
 #'
 #' @param alignment A \code{DNAbin} alignment. If \code{NULL} (default), the
 #'   bundled MalAvi alignment for \code{version} is used.
-#' @param method How to define a repeated haplotype: \code{"overlap"} (default,
-#'   the more thorough, paper-style definition) or \code{"strict"}. See
-#'   \code{\link{clean_alignment}}.
+#' @param method How to define a repeated haplotype: \code{"overlap"} (default)
+#'   or \code{"strict"}. See \code{\link{clean_alignment}}.
 #' @param version MalAvi release to use when \code{alignment} is \code{NULL}; a
 #'   date string or \code{"latest"} (default).
 #' @return A list with:
 #'   \describe{
 #'     \item{\code{summary}}{a one-row \code{data.frame} of counts:
 #'       \code{n_sequences}, \code{n_haplotypes} (distinct haplotypes),
-#'       \code{n_synonymous_haplotypes} (haplotypes carrying >1 name),
+#'       \code{n_synonymous_haplotypes} (haplotypes carrying >1 lineage name),
 #'       \code{n_lineages_in_synonymies}, \code{n_redundant_names}
 #'       (\code{n_sequences - n_haplotypes}, the diversity inflation),
 #'       \code{pct_diversity_inflation}, and \code{n_partial_sequences}.}

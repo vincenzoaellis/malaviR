@@ -1,10 +1,11 @@
 #' MalAvi database version bundled in the package
 #'
-#' Returns the version (release date) of the MalAvi database snapshot that
-#' \code{malaviR} reads from. MalAvi is no longer queried online, so the
+#' Returns the version (release date) of the MalAvi database that
+#' \code{malaviR} reads from. MalAvi is no longer permanently online, so the
 #' "version" is simply the date stamp of the bundled release (e.g.
 #' \code{"2026-03-23"}). Use \code{which = "all"} to list every release bundled in
-#' your installation.
+#' your installation (currently there is only one, but I may keep some archived
+#' older versions in the future).
 #'
 #' @param which Either \code{"latest"} (default) to return the most recent
 #'   bundled release, or \code{"all"} to return all bundled releases.

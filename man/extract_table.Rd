@@ -18,7 +18,7 @@ A \code{data.frame}, or for \code{table = "all"} a named list of
   \code{data.frame}s.
 }
 \description{
-Returns one of the MalAvi data tables from the database snapshot bundled in
+Returns one of the MalAvi data tables from the database bundled in
 the package. MalAvi is no longer downloaded from the web; the tables come from
 the release shipped with \code{malaviR} (see \code{\link{malavi_version}}).
 }

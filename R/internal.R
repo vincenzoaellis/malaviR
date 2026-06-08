@@ -84,15 +84,20 @@
 
   merged_to <- seq_len(nrep)                 # rep index each rep merges into
   for (a in order(infl)) {                    # shortest first
-    if (infl[a] == 0 || infl[a] == max_infl) next   # full-length can't be subsumed
+    ## a zero-information sequence, or one already as complete as any other,
+    ## cannot be contained in a *strictly* more complete sequence
+    if (infl[a] == 0 || infl[a] == max_infl) next
     cand <- which(infl > infl[a])             # only more complete reps can contain it
     if (length(cand) == 0) next
     pos <- which(M[a, ] > 0L)
     eq  <- M[cand, pos, drop = FALSE] == matrix(M[a, pos], length(cand), length(pos),
                                                 byrow = TRUE)
-    contains <- which(rowSums(eq) == length(pos))
+    contains <- cand[rowSums(eq) == length(pos)]
     if (length(contains) > 0) {
-      best <- cand[contains][which.max(infl[cand[contains]])]
+      ## merge into the most complete container; break ties alphabetically by
+      ## lineage name so the result does not depend on alignment row order
+      best <- contains[infl[contains] == max(infl[contains])]
+      best <- best[order(names(infl)[best])][1]
       merged_to[a] <- best
     }
   }
@@ -103,6 +108,74 @@
   new_for_old <- old_id[roots]
   names(new_for_old) <- old_id
   unname(new_for_old[as.character(group)])
+}
+
+## ---------------------------------------------------------------------------
+## Taxonomy matching helpers, used by match_taxonomy().
+## ---------------------------------------------------------------------------
+
+## Per-species MalAvi family and order from the Hosts and Sites table.
+## Each host can appear on many rows; take the most frequent family/order label.
+.host_family_order <- function(hosts) {
+  sp  <- trimws(hosts$SPECIES_NAME)
+  fam <- trimws(hosts$FAMILY_NAME)
+  ord <- trimws(hosts$ORDER_NAME)
+  ok  <- !is.na(sp) & sp != ""
+  sp <- sp[ok]; fam <- fam[ok]; ord <- ord[ok]
+  modal <- function(x) {
+    x <- x[!is.na(x) & x != "" & x != "N/A"]
+    if (!length(x)) return(NA_character_)
+    names(sort(table(x), decreasing = TRUE))[1]
+  }
+  species <- sort(unique(sp))
+  data.frame(
+    species = species,
+    family  = vapply(species, function(s) modal(fam[sp == s]), character(1)),
+    order   = vapply(species, function(s) modal(ord[sp == s]), character(1)),
+    row.names = NULL, stringsAsFactors = FALSE
+  )
+}
+
+## Specific epithet of a binomial, and the same with a trailing Latin
+## gender/declension ending removed so masculine/feminine/neuter forms collapse
+## (e.g. aegyptiacus/aegyptiaca -> aegyptiac; kingi/kingii -> king).
+.epithet      <- function(x) sub("^[A-Za-z]+ ", "", x)
+.epithet_stem <- function(e) sub("(us|a|um|is|os|on|ii|i|e)$", "", e)
+
+## Resolve one binomial to an eBird species name, trying exact, then IOC/
+## BirdLife/Howard & Moore synonyms, then the family/order-constrained epithet
+## match. Returns list(ebird, type); ebird is NA if nothing resolves.
+.resolve_name <- function(name, family, order, ref) {
+  if (name %in% ref$SCI_NAME) return(list(ebird = name, type = "exact"))
+  syn <- c(IOC = "IOC_name", BirdLife = "Birdlife_name", HowardMoore = "H_M_name")
+  for (label in names(syn)) {
+    i <- match(name, ref[[syn[label]]])
+    if (!is.na(i)) return(list(ebird = ref$SCI_NAME[i], type = paste0("synonym:", label)))
+  }
+  .epithet_reassign(name, family, order, ref)
+}
+
+## Recover a genus reassignment / gender change by matching the specific epithet
+## within the host's MalAvi family (Latin family token used by clootl), falling
+## back to its order when that family name is not one clootl uses. The match is
+## accepted only when the epithet resolves to a single eBird species, so epithet
+## collisions between unrelated birds are left unmatched.
+.epithet_reassign <- function(name, family, order, ref) {
+  e <- .epithet(name)
+  s <- .epithet_stem(e)
+  pool  <- ref[!is.na(family) & ref$latin_family == family, , drop = FALSE]
+  level <- "family"
+  if (nrow(pool) == 0) {
+    pool  <- ref[!is.na(order) & ref$ORDER1 == order, , drop = FALSE]
+    level <- "order"
+  }
+  if (nrow(pool) == 0) return(list(ebird = NA_character_, type = NA_character_))
+  cand <- unique(pool$SCI_NAME[.epithet(pool$SCI_NAME) == e])            # exact epithet
+  if (length(cand) != 1)
+    cand <- unique(pool$SCI_NAME[.epithet_stem(.epithet(pool$SCI_NAME)) == s])  # gender-relaxed
+  if (length(cand) == 1)
+    return(list(ebird = cand, type = paste0("reassigned:", level)))
+  list(ebird = NA_character_, type = NA_character_)
 }
 
 ## Build the synonymy table (groups with >1 lineage) and pick which to keep.
