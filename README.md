@@ -94,13 +94,11 @@ wary of.
 ```r
 library(dplyr)
 
-lineage_studies() %>%                                  # one row per lineage
-  select(lineage, n_studies, n_host_records, n_countries)
-
 # do single-study lineages carry more singleton non-synonymous changes?
 lineage_screen() %>%
   filter(in_hosts_table) %>%
-  group_by(single_study = n_studies == 1) %>%
+  mutate(single_study = if_else(n_studies == 1, TRUE, FALSE)) %>%
+  group_by(single_study) %>%
   summarize(n = n(), mean_nonsyn = mean(n_singleton_nonsynonymous))
 #> # A tibble: 2 x 3
 #>   single_study     n mean_nonsyn
@@ -116,7 +114,8 @@ pooled database) is more meaningful — and the pattern gets stronger:
 ```r
 lineage_screen(genus = "Plasmodium") %>%
   filter(in_hosts_table) %>%
-  group_by(single_study = n_studies == 1) %>%
+  mutate(single_study = if_else(n_studies == 1, TRUE, FALSE)) %>%
+  group_by(single_study) %>%
   summarize(n = n(), mean_nonsyn = mean(n_singleton_nonsynonymous))
 #> 1 FALSE          360      0.0139
 #> 2 TRUE          1045      0.175    # single-study Plasmodium lineages stand out even more
@@ -124,24 +123,27 @@ lineage_screen(genus = "Plasmodium") %>%
 
 You can also focus on a phylogenetic group of your choosing. Here we take SGS1 (a widespread
 *P. relictum* lineage) and every lineage within 3 bp of it, then run the same comparison inside
-that little clade:
+that little clade. SGS1 is *Plasmodium*, so we measure genetic distances within that genus.
+`clean_names()` turns the alignment's prefixed tip labels (e.g. `P_SGS1_Plasmodium_relictum`)
+into the bare lineage names the screen uses, and `ape::dist.dna()` gives the genetic distance
+(here the proportion of sites that differ, so 3 bp over the 479 bp barcode is a `3 / 479` cutoff):
 
 ```r
-aln  <- extract_alignment()
-m    <- toupper(as.character(aln))                       # one row per lineage
-name <- sub("^[A-Za-z]_([^_]+).*$", "\\1", rownames(m))  # bare lineage names
-sgs1 <- m[match("SGS1", name), ]
+library(ape)
 
-is_base  <- function(x) x %in% c("A", "C", "G", "T")     # number of base differences from SGS1
-n_diff   <- apply(m, 1, function(s) sum(is_base(s) & is_base(sgs1) & s != sgs1))
-sgs1_grp <- name[n_diff <= 3]                            # SGS1 + its close relatives (62 lineages)
+aln <- extract_alignment(genus = "Plasmodium")
+rownames(aln) <- clean_names(rownames(aln))                 # bare lineage names (SGS1, GRW04, ...)
+
+d <- dist.dna(aln, model = "raw", pairwise.deletion = TRUE, as.matrix = TRUE)
+near_sgs1 <- names(which(d["SGS1", ] <= 3 / 479))           # SGS1 + lineages within 3 bp of it
 
 lineage_screen() %>%
-  filter(in_hosts_table, lineage %in% sgs1_grp) %>%
-  group_by(single_study = n_studies == 1) %>%
+  filter(in_hosts_table, lineage %in% near_sgs1) %>%
+  mutate(single_study = if_else(n_studies == 1, TRUE, FALSE)) %>%
+  group_by(single_study) %>%
   summarize(n = n(), mean_nonsyn = mean(n_singleton_nonsynonymous))
 #> 1 FALSE           10      0
-#> 2 TRUE            39      0.0769   # within the SGS1 group it's the single-study lineages again
+#> 2 TRUE            35      0.0857   # within the SGS1 group it's the single-study lineages again
 ```
 
 ### Repeated haplotypes ("synonymies")

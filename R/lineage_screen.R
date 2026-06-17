@@ -132,32 +132,35 @@ lineage_studies <- function(version = "latest", references = FALSE) {
 #' @examples
 #' \donttest{
 #' library(dplyr)
+#' library(ape)
 #'
 #' ## Staffan-style comparison: do single-study lineages carry more singleton
 #' ## non-synonymous changes than well-replicated ones?
 #' lineage_screen() %>%
 #'   filter(in_hosts_table) %>%
-#'   group_by(single_study = n_studies == 1) %>%
+#'   mutate(single_study = if_else(n_studies == 1, TRUE, FALSE)) %>%
+#'   group_by(single_study) %>%
 #'   summarize(n = n(), mean_nonsyn = mean(n_singleton_nonsynonymous))
 #'
 #' ## sharper within a genus (singletons judged against Plasmodium alone)
 #' lineage_screen(genus = "Plasmodium") %>%
 #'   filter(in_hosts_table) %>%
-#'   group_by(single_study = n_studies == 1) %>%
+#'   mutate(single_study = if_else(n_studies == 1, TRUE, FALSE)) %>%
+#'   group_by(single_study) %>%
 #'   summarize(n = n(), mean_nonsyn = mean(n_singleton_nonsynonymous))
 #'
-#' ## restrict to a phylogenetic group: SGS1 and lineages within 3 bp of it
-#' aln <- extract_alignment()
-#' m    <- toupper(as.character(aln))                       # one row per lineage
-#' name <- sub("^[A-Za-z]_([^_]+).*$", "\\1", rownames(m))  # bare lineage names
-#' sgs1 <- m[match("SGS1", name), ]
-#' is_base  <- function(x) x %in% c("A", "C", "G", "T")
-#' n_diff   <- apply(m, 1, function(s) sum(is_base(s) & is_base(sgs1) & s != sgs1))
-#' sgs1_grp <- name[n_diff <= 3]
+#' ## restrict to a phylogenetic group: SGS1 and lineages within 3 bp of it.
+#' ## SGS1 is Plasmodium, so measure genetic distances within that genus;
+#' ## clean_names() gives the bare lineage names the screen uses.
+#' aln <- extract_alignment(genus = "Plasmodium")
+#' rownames(aln) <- clean_names(rownames(aln))
+#' d <- dist.dna(aln, model = "raw", pairwise.deletion = TRUE, as.matrix = TRUE)
+#' near_sgs1 <- names(which(d["SGS1", ] <= 3 / 479))
 #'
 #' lineage_screen() %>%
-#'   filter(in_hosts_table, lineage %in% sgs1_grp) %>%
-#'   group_by(single_study = n_studies == 1) %>%
+#'   filter(in_hosts_table, lineage %in% near_sgs1) %>%
+#'   mutate(single_study = if_else(n_studies == 1, TRUE, FALSE)) %>%
+#'   group_by(single_study) %>%
 #'   summarize(n = n(), mean_nonsyn = mean(n_singleton_nonsynonymous))
 #' }
 #' @export
