@@ -7,44 +7,72 @@
 build_malavi_site_profile(
   reference = NULL,
   version = "latest",
-  pseudocount = 0.5
+  pseudocount = 0.01
 )
 }
 \arguments{
 \item{reference}{A reference alignment: a \code{DNAbin} alignment (e.g. from
-\code{\link{extract_alignment}}), a named character vector of equal-length
-aligned sequences, or \code{NULL} (default) to use the bundled MalAvi
-alignment for \code{version}.}
+\code{\link{extract_alignment}}) or a named character vector of equal-length
+aligned sequences. Leave it \code{NULL} (the default) to profile the bundled
+MalAvi alignment, which is the usual case; only supply \code{reference} if
+you want to profile your own alignment instead.}
 
-\item{version}{MalAvi release to use when \code{reference} is \code{NULL}; a
-date string or \code{"latest"} (default).}
+\item{version}{Which bundled MalAvi release to profile. Only consulted when
+\code{reference = NULL} (it selects which bundled alignment to load, and is
+ignored if you pass your own \code{reference}). A date string such as
+\code{"2026-03-23"}, or \code{"latest"} (default) for the newest bundled
+release.}
 
 \item{pseudocount}{Smoothing pseudocount added to each base count when
-computing per-site frequencies (default 0.5).}
+computing per-site frequencies (default 0.01). Without it, a base that never
+occurs at a site would have frequency exactly 0, and the QC score (which
+takes logs of these frequencies) would hit \code{log(0) = -Inf}. Adding a
+small amount to every base lifts those zeros just off the floor. A small
+value (0.01) barely perturbs the observed frequencies, so genuinely
+unobserved bases stay very rare (and thus stay flag-worthy); a larger value
+would make never-seen bases look more ordinary.}
 }
 \value{
-A \code{data.frame} with one row per alignment position and columns
-  \code{position}, \code{codon_position}, \code{n_nonmissing},
-  \code{count_A/C/G/T}, \code{freq_A/C/G/T}, \code{major_base},
-  \code{n_observed_alleles}, \code{observed_alleles}, \code{invariant}, and
-  \code{entropy}.
+A \code{data.frame} with one row per alignment position (one row per
+  column of the alignment):
+  \describe{
+    \item{\code{position}}{the site's index along the barcode, i.e. its 1-based
+      column number in the alignment (1 = first aligned base).}
+    \item{\code{codon_position}}{where the site falls within its codon under
+      reading frame 1: 1, 2, or 3 (position 1 -> 1, 2 -> 2, 3 -> 3, 4 -> 1, ...).
+      Third-position sites tolerate synonymous change, so this flags how
+      constrained the site is expected to be.}
+    \item{\code{n_seqs}}{number of sequences with a called base (A/C/G/T)
+      at the site (i.e. not a gap or ambiguity).}
+    \item{\code{count_A}, \code{count_C}, \code{count_G}, \code{count_T}}{number
+      of sequences carrying each base at the site.}
+    \item{\code{freq_A}, \code{freq_C}, \code{freq_G}, \code{freq_T}}{the
+      smoothed \emph{proportion} of sequences carrying each base at the site,
+      computed as \code{(count + pseudocount) / (n_seqs + 4 * pseudocount)};
+      the four base frequencies at a site therefore sum to 1.}
+    \item{\code{major_base}}{the most common base at the site (the consensus).}
+    \item{\code{n_observed_alleles}}{how many of the four bases are seen at all.}
+    \item{\code{observed_alleles}}{those bases as a string, e.g. \code{"AG"}.}
+    \item{\code{invariant}}{\code{TRUE} if only one base is ever seen at the site.}
+    \item{\code{entropy}}{Shannon entropy of the observed bases; 0 at an
+      invariant site, higher at variable ones.}
+  }
 }
 \description{
-These are new experimental functions, that we're still testing. Please use
-with caution.
+\strong{Experimental.} A helper used by \code{\link{lineage_qc}} and
+\code{\link{amplicon_qc}}. In an aligned set of sequences, every column (a
+"site", i.e. one position along the 479 bp barcode) lines up the same base
+across all lineages. This function walks the alignment column by column and
+records, for each site, which DNA bases (A/C/G/T) occur there and how often --
+the consensus (most common) base, how variable the site is, and so on. The QC
+functions use that summary to judge whether a query's base at a given site
+looks typical of the lineages currently in MalAvi (e.g. a base never seen at
+that site, or a change at a site that never varies, is suspicious).
 }
 \details{
-Summarizes a curated MalAvi alignment one column (site) at a time: per-base
-counts, smoothed frequencies, the major base, which bases are observed,
-whether the site is invariant, its Shannon entropy, and its codon position
-(assuming reading frame 1). This profile is what \code{\link{lineage_qc}} and
-\code{\link{amplicon_qc}} use to decide whether a query's bases are typical of
-known MalAvi diversity.
-
-Building the profile from the bundled alignment takes about a second. If you
-will screen many sequences, build it once and pass it to \code{lineage_qc} /
-\code{amplicon_qc} via their \code{site_profile} argument to avoid rebuilding
-it on every call.
+Building the profile from the bundled alignment is very fast (seconds). But, if you
+are screening many sequences, consider building it once and passing it to \code{lineage_qc} or
+\code{amplicon_qc} through their \code{site_profile} argument.
 }
 \examples{
 profile <- build_malavi_site_profile()

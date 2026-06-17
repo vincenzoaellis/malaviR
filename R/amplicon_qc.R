@@ -1,96 +1,67 @@
 ## Abundance-aware quality-control screen for denoised amplicon sequence
 ## variants (ASVs). Builds on lineage_qc() per variant and adds abundance flags.
-
-#' Default thresholds for \code{amplicon_qc}
-#'
-#' These are new experimental functions, that we're still testing. Please use
-#' with caution.
-#'
-#' Returns the list of abundance-related thresholds used by
-#' \code{\link{amplicon_qc}}. Edit the returned list and pass it back via the
-#' \code{amplicon_thresholds} argument to customize the screen.
-#'
-#' @return A named list with:
-#'   \describe{
-#'     \item{\code{min_relative_frequency}}{variants below this within-sample
-#'       relative frequency are flagged as below the minimum.}
-#'     \item{\code{low_frequency_warning}, \code{very_low_frequency_warning}}{
-#'       relative-frequency cutoffs for the low / very-low frequency flags.}
-#'     \item{\code{parent_fold_abundance}}{fold-abundance of a more common
-#'       variant above which a near, rarer variant looks like an error
-#'       derivative.}
-#'     \item{\code{oneoff_distance}, \code{twooff_distance}}{base distances from
-#'       a much more abundant variant used by the error-derivative flags.}
-#'     \item{\code{index_hop_relative_frequency}}{relative frequency below which
-#'       a variant may reflect index hopping or low-level contamination.}
-#'   }
-#' @seealso \code{\link{amplicon_qc}}
-#' @examples
-#' default_amplicon_qc_thresholds()
-#' @export
-default_amplicon_qc_thresholds <- function() {
-  list(
-    min_relative_frequency = 0.01,
-    low_frequency_warning = 0.01,
-    very_low_frequency_warning = 0.001,
-
-    ## a low-frequency variant a base or two from a much more abundant variant
-    ## may be an error derivative of it
-    parent_fold_abundance = 10,
-    oneoff_distance = 1,
-    twooff_distance = 2,
-
-    ## possible low-level contamination / index hopping
-    index_hop_relative_frequency = 0.001
-  )
-}
+## Fixed/derived abundance settings live in .amplicon_qc_settings() (internal.R).
 
 #' Quality-control screen for denoised amplicon sequence variants
 #'
-#' These are new experimental functions, that we're still testing. Please use
-#' with caution.
+#' \strong{Experimental, use with caution.} A QC screen for
+#' amplicon sequence variants (ASVs) from amplifications of the 479bp barcoding MalAvi region. My intention is that you would use this after
+#' sequencing with short-read deep sequencing technology (2 x 300bp), merging the pairs, and denoising with software like \pkg{dada2},
+#' vsearch, or unoise. Basically, it's a second check, because my experience is that those tools will still leave you with zillions of ASVs.
+#' The way it works is that you feed the function your ASVs (the actual sequence...needs to be MalAvi aligned 479bp) and the number of final reads it has (so a two column data frame).
+#' The function first evaluates the ASVs \code{\link{lineage_qc}}, then it tries to flag possible erroneous ASVs by computing some statistics related
+#' to their relative abundance in the pool and how genetically similar they are to abundant variants. You can use this to, for example, remove ASVs
+#' that appear in less than 5% of your reads, or rare ASVs that are very close (a bp off) from very abundant ASVs. I hope it will be useful as we start to do more deep sequencing.
 #'
-#' An abundance-aware QC screen for amplicon sequence variants (ASVs) produced by
-#' denoising tools such as \pkg{dada2}, vsearch, or unoise. Each variant is run
-#' through \code{\link{lineage_qc}} for biological plausibility, and additional
-#' flags use the read counts to catch likely technical artifacts: variants below
-#' a minimum relative abundance, variants a base or two away from a much more
-#' abundant variant (possible error derivatives), and very rare variants that
-#' may reflect index hopping or low-level contamination.
+#' The reference is coded and its site profile built once, then reused across all variants.
 #'
-#' As with \code{\link{lineage_qc}}, the variant sequences must already be
-#' aligned to the MalAvi barcode (same length and frame as the reference). The
-#' reference is coded and its site profile built once, then reused across all
-#' variants.
-#'
-#' @param variants A \code{data.frame} of variants with at least a sequence
-#'   column and a count column (named by \code{sequence_col} / \code{count_col}).
-#'   An optional \code{sample_col} runs the screen separately per sample;
-#'   relative frequencies and parent comparisons are then computed within each
-#'   sample.
+#' @param variants A two-column \code{data.frame}: the \strong{first} column holds
+#'   the ASV sequences (each MalAvi-aligned, 479 bp) and the \strong{second}
+#'   column holds their final read counts. The function errors if \code{variants}
+#'   is not a data.frame, has fewer than two columns, has the columns in the wrong
+#'   order (first not sequences, second not numeric counts), or contains any
+#'   sequence that is not the reference length (479 bp for the bundled data) --
+#'   ASVs must already be aligned to the MalAvi barcode. Only the first two
+#'   columns are used.
 #' @param reference Reference alignment of curated lineages: a \code{DNAbin}
-#'   alignment, a named character vector, or \code{NULL} (default) to use the
-#'   bundled MalAvi alignment for \code{version}.
-#' @param site_profile Optional precomputed profile from
-#'   \code{\link{build_malavi_site_profile}}; built from \code{reference} if
-#'   \code{NULL}.
-#' @param version MalAvi release to use when \code{reference} is \code{NULL}.
-#' @param sequence_col,count_col Column names in \code{variants} holding the
-#'   sequence and the read count.
-#' @param sample_col Optional column name grouping variants into samples. If
-#'   \code{NULL} (default), all variants are treated as one pool.
-#' @param lineage_qc_thresholds,amplicon_thresholds Threshold lists; see
-#'   \code{\link{default_lineage_qc_thresholds}} and
-#'   \code{\link{default_amplicon_qc_thresholds}}.
+#'   alignment you provide, a named character vector you provide, or \code{NULL} (default) to use the
+#'   bundled MalAvi alignment.
+#' @param site_profile Optional precomputed per-site base profile from
+#'   \code{\link{build_malavi_site_profile}} -- a table that records, for each
+#'   alignment position, which bases occur across the reference lineages and how
+#'   often (the consensus base, how variable the site is, and so on). It is what
+#'   lets the screen judge whether a variant's base at a site looks typical. Built
+#'   automatically from \code{reference} when \code{NULL}; supply it only to avoid
+#'   rebuilding it when you call the function repeatedly.
+#' @param version Which bundled MalAvi release to screen against. Defaults to
+#'   \code{"latest"} (the newest bundled release); pass a date string such as
+#'   \code{"2026-03-23"} only if you want an older one. Consulted only when
+#'   \code{reference = NULL}.
+#' @param min_freq Within-pool relative frequency (read fraction) below which a
+#'   variant is flagged as low-frequency (default 0.01, i.e. 1\% of the reads).
+#' @param nearest_neighbor_diff How many times more abundant a near (one base off)
+#'   neighbor must be before a rarer variant is flagged as a likely sequencing
+#'   error derived from that abundant variant (default 10).
 #' @param allow_ambiguity,chimera_check Passed through to \code{\link{lineage_qc}}
 #'   for each variant.
 #' @return An object of class \code{malavi_amplicon_qc}: the input
-#'   \code{data.frame} with added columns including \code{relative_frequency},
-#'   the nearest more-abundant variant and distance to it,
-#'   \code{lineage_call} / \code{lineage_score} / \code{artifact_risk} and
-#'   nearest MalAvi lineage from \code{\link{lineage_qc}}, the per-variant
-#'   \code{amplicon_flags}, and an overall \code{amplicon_call}.
-#' @seealso \code{\link{lineage_qc}}, \code{\link{default_amplicon_qc_thresholds}}
+#'   \code{data.frame} with added columns, the most useful being
+#'   \describe{
+#'     \item{\code{relative_frequency}}{the variant's read fraction within the pool.}
+#'     \item{\code{distance_to_nearest_more_abundant_neighbor}, \code{fold_less_abundant_than_nearest_neighbor}}{
+#'       distance to, and fold-abundance of, the nearest more-abundant neighbor sequence.}
+#'     \item{\code{lineage_call}, \code{lineage_score}}{the \code{\link{lineage_qc}}
+#'       verdict and score for the variant's sequence.}
+#'     \item{\code{nearest_malavi_lineage}, \code{distance_to_nearest_malavi},
+#'       \code{n_nonsynonymous}}{nearest known MalAvi lineage, distance to it, and
+#'       non-synonymous changes versus it.}
+#'     \item{\code{lineage_flags}, \code{amplicon_flags}}{the warning
+#'       tags from the lineage screen and the abundance screen.}
+#'     \item{\code{amplicon_call}}{the overall per-variant verdict: \code{passes},
+#'       \code{review}, \code{low_frequency_review}, \code{possible_amplicon_artifact},
+#'       or \code{strong_warning}.}
+#'   }
+#' @seealso \code{\link{lineage_qc}}, \code{\link{lineage_screen}}
 #' @examples
 #' ## two known lineages plus a rare one-base error derivative of the first
 #' aln <- extract_alignment()
@@ -103,100 +74,109 @@ default_amplicon_qc_thresholds <- function() {
 #' aqc
 #' @export
 amplicon_qc <- function(variants, reference = NULL, site_profile = NULL,
-                        version = "latest", sequence_col = "sequence",
-                        count_col = "count", sample_col = NULL,
-                        lineage_qc_thresholds = default_lineage_qc_thresholds(),
-                        amplicon_thresholds = default_amplicon_qc_thresholds(),
+                        version = "latest", min_freq = 0.01,
+                        nearest_neighbor_diff = 10,
                         allow_ambiguity = FALSE, chimera_check = TRUE) {
-  if (!sequence_col %in% names(variants)) {
-    stop("`sequence_col` ('", sequence_col, "') not found in variants.", call. = FALSE)
+  ## ---- validate the two-column input: sequences then counts ----
+  if (!is.data.frame(variants) || ncol(variants) < 2) {
+    stop("`variants` must be a data.frame whose first column is the ASV ",
+         "sequences and whose second column is their read counts.", call. = FALSE)
   }
-  if (!count_col %in% names(variants)) {
-    stop("`count_col` ('", count_col, "') not found in variants.", call. = FALSE)
+  if (is.numeric(variants[[1]]) || !is.numeric(variants[[2]])) {
+    stop("`variants` columns look wrong: the first column must be the ",
+         "sequences (character) and the second the read counts (numeric).",
+         call. = FALSE)
   }
 
-  variants[[sequence_col]] <- vapply(variants[[sequence_col]], .qc_clean_seq, character(1))
+  ## standardize to sequence/count columns (only the first two are used)
+  dat <- data.frame(sequence = as.character(variants[[1]]),
+                    count     = as.numeric(variants[[2]]),
+                    stringsAsFactors = FALSE)
+  dat$sequence <- vapply(dat$sequence, .qc_clean_seq, character(1))
+
+  ## settings: fixed lineage weights (479 bp barcode) + the two abundance knobs
+  lineage_settings  <- .lineage_qc_settings()
+  amplicon_settings <- .amplicon_qc_settings(min_freq, nearest_neighbor_diff)
 
   ## build the coded reference + site profile once, shared across all variants
-  charmat <- .qc_char_matrix(reference, version)
-  refcode <- .qc_code_matrix(charmat)
+  charmat   <- .qc_char_matrix(reference, version)
+
+  ## every ASV must already be aligned to the reference barcode, i.e. have the
+  ## same length as the reference alignment (479 bp for the bundled MalAvi data)
+  ref_len  <- ncol(charmat)
+  seq_lens <- nchar(dat$sequence)
+  if (any(seq_lens != ref_len)) {
+    bad_lens <- sort(unique(seq_lens[seq_lens != ref_len]))
+    stop(sum(seq_lens != ref_len), " of ", nrow(dat), " sequence(s) are not ",
+         ref_len, " bp, the reference alignment length (observed length(s): ",
+         paste(utils::head(bad_lens, 5), collapse = ", "),
+         if (length(bad_lens) > 5) ", ..." else "",
+         "). ASVs must already be aligned to the MalAvi barcode before screening; ",
+         "see blast_malavi() to place an unaligned sequence.", call. = FALSE)
+  }
+
+  refcode   <- .qc_code_matrix(charmat)
   ref_names <- rownames(charmat)
   if (is.null(site_profile)) site_profile <- .qc_site_profile(charmat)
   code <- .qc_genetic_code_4()
-  min_rf <- amplicon_thresholds$min_relative_frequency
 
-  ## with no sample column, treat all variants as one pseudo-sample
-  if (is.null(sample_col)) {
-    variants$.malavi_qc_sample <- "all"
-    sample_col <- ".malavi_qc_sample"
-  }
+  total_reads <- sum(dat$count, na.rm = TRUE)
+  dat$relative_frequency <- dat$count / total_reads
+  ## sort most abundant first so each variant's neighbors are the rows above it
+  dat <- dat[order(dat$count, decreasing = TRUE), , drop = FALSE]
 
-  out_list <- lapply(unique(variants[[sample_col]]), function(s) {
-    dat <- variants[variants[[sample_col]] == s, , drop = FALSE]
+  ## integer-code the variants once for fast pairwise distances
+  seq_codes <- lapply(strsplit(dat$sequence, "", fixed = TRUE), .qc_code_vec)
 
-    total_reads <- sum(dat[[count_col]], na.rm = TRUE)
-    dat$relative_frequency <- dat[[count_col]] / total_reads
-    ## sort most abundant first so each variant's "parents" are the rows above it
-    dat <- dat[order(dat[[count_col]], decreasing = TRUE), , drop = FALSE]
+  ## nearest more-abundant variant for each variant (NA for the most abundant)
+  neighbor <- .amplicon_nearest_neighbor(seq_codes, dat$count)
+  dat <- cbind(dat, neighbor)
 
-    seqs   <- dat[[sequence_col]]
-    counts <- dat[[count_col]]
-    ## integer-code the variants once for fast pairwise distances
-    seq_codes <- lapply(strsplit(seqs, "", fixed = TRUE), .qc_code_vec)
-
-    ## nearest more-abundant variant for each variant (NA for the most abundant)
-    parent <- .amplicon_nearest_parent(seq_codes, counts)
-    dat <- cbind(dat, parent)
-
-    ## biological plausibility of each variant via lineage_qc()
-    lineage_results <- lapply(seqs, function(q) {
-      .lineage_qc_core(q, charmat, refcode, ref_names, site_profile, code,
-                       allow_ambiguity, chimera_check, lineage_qc_thresholds,
-                       return_details = FALSE)
-    })
-    dat$lineage_call  <- vapply(lineage_results, function(x) x$call, character(1))
-    dat$lineage_score <- vapply(lineage_results, function(x) x$overall_score, numeric(1))
-    dat$artifact_risk <- vapply(lineage_results, function(x) x$artifact_risk, numeric(1))
-    dat$nearest_malavi_lineage <- vapply(lineage_results,
-                                         function(x) x$nearest$lineage[1], character(1))
-    dat$distance_to_nearest_malavi <- vapply(lineage_results,
-                                             function(x) x$nearest$distance[1], numeric(1))
-    dat$lineage_flags <- vapply(lineage_results,
-                                function(x) paste(x$flags, collapse = ";"), character(1))
-
-    ## abundance-aware amplicon flags + an overall call, per variant
-    dat$amplicon_flags <- vapply(seq_len(nrow(dat)),
-      function(i) .amplicon_flags(dat[i, ], amplicon_thresholds, min_rf),
-      character(1))
-    dat$amplicon_call <- vapply(seq_len(nrow(dat)),
-      function(i) .amplicon_call(dat$amplicon_flags[i], dat$lineage_call[i]),
-      character(1))
-
-    dat$sample_total_reads <- total_reads
-    dat
+  ## biological plausibility of each variant via lineage_qc()
+  lineage_results <- lapply(dat$sequence, function(q) {
+    .lineage_qc_core(q, charmat, refcode, ref_names, site_profile, code,
+                     allow_ambiguity, chimera_check, lineage_settings,
+                     details = FALSE)
   })
+  dat$lineage_call  <- vapply(lineage_results, function(x) x$call, character(1))
+  dat$lineage_score <- vapply(lineage_results, function(x) x$score, numeric(1))
+  dat$nearest_malavi_lineage <- vapply(lineage_results,
+                                       function(x) x$nearest$lineage[1], character(1))
+  dat$distance_to_nearest_malavi <- vapply(lineage_results,
+                                           function(x) x$nearest$distance[1], numeric(1))
+  dat$n_nonsynonymous <- vapply(lineage_results,
+                                function(x) as.integer(x$summary$n_nonsynonymous), integer(1))
+  dat$lineage_flags <- vapply(lineage_results,
+                              function(x) paste(x$flags, collapse = ";"), character(1))
 
-  out <- do.call(rbind, out_list)
-  out$.malavi_qc_sample <- NULL
-  rownames(out) <- NULL
+  ## abundance-aware amplicon flags + an overall call, per variant
+  dat$amplicon_flags <- vapply(seq_len(nrow(dat)),
+    function(i) .amplicon_flags(dat[i, ], amplicon_settings),
+    character(1))
+  dat$amplicon_call <- vapply(seq_len(nrow(dat)),
+    function(i) .amplicon_call(dat$amplicon_flags[i], dat$lineage_call[i]),
+    character(1))
 
-  attr(out, "amplicon_thresholds") <- amplicon_thresholds
-  attr(out, "lineage_qc_thresholds") <- lineage_qc_thresholds
-  class(out) <- c("malavi_amplicon_qc", class(out))
-  out
+  dat$pool_total_reads <- total_reads
+  rownames(dat) <- NULL
+
+  attr(dat, "min_freq") <- min_freq
+  class(dat) <- c("malavi_amplicon_qc", class(dat))
+  dat
 }
 
 ## For abundance-sorted variants (most abundant first), find each variant's
-## nearest more-abundant variant by Hamming distance and the fold-abundance of
-## that parent. The first (most abundant) variant has no parent. `seq_codes` is
-## a list of integer-coded variants aligned with `counts`.
-.amplicon_nearest_parent <- function(seq_codes, counts) {
+## nearest more-abundant neighbor by Hamming distance and the fold-abundance of
+## that neighbor. The first (most abundant) variant has no more-abundant
+## neighbor. `seq_codes` is a list of integer-coded variants aligned with
+## `counts`.
+.amplicon_nearest_neighbor <- function(seq_codes, counts) {
   n <- length(seq_codes)
   rows <- lapply(seq_len(n), function(i) {
     if (i == 1L) {
-      return(data.frame(nearest_more_abundant_count = NA_real_,
-                        distance_to_nearest_more_abundant = NA_real_,
-                        fold_less_abundant_than_parent = NA_real_,
+      return(data.frame(nearest_more_abundant_neighbor_count = NA_real_,
+                        distance_to_nearest_more_abundant_neighbor = NA_real_,
+                        fold_less_abundant_than_nearest_neighbor = NA_real_,
                         stringsAsFactors = FALSE))
     }
     qi <- seq_codes[[i]]
@@ -207,40 +187,30 @@ amplicon_qc <- function(variants, reference = NULL, site_profile = NULL,
       sum(both & qi != pj)
     }, numeric(1))
     best <- which.min(dists)
-    data.frame(nearest_more_abundant_count = counts[best],
-               distance_to_nearest_more_abundant = dists[best],
-               fold_less_abundant_than_parent = counts[best] / counts[i],
+    data.frame(nearest_more_abundant_neighbor_count = counts[best],
+               distance_to_nearest_more_abundant_neighbor = dists[best],
+               fold_less_abundant_than_nearest_neighbor = counts[best] / counts[i],
                stringsAsFactors = FALSE)
   })
   do.call(rbind, rows)
 }
 
-## Build the abundance-aware flag string for a single variant row.
-.amplicon_flags <- function(row, th, min_rf) {
+## Build the abundance-aware flag string for a single variant row. Two simple
+## checks: (1) the variant sits below the minimum read fraction, and (2) it is
+## one base off a much more abundant variant (a likely error derivative). The
+## lineage_qc() verdict for bad sequences is also surfaced as a flag.
+.amplicon_flags <- function(row, th) {
   flags <- character(0)
-  rf <- row$relative_frequency
 
-  if (rf < min_rf) flags <- c(flags, paste0("below_min_relative_frequency_", min_rf))
-  if (rf < th$very_low_frequency_warning) {
-    flags <- c(flags, "very_low_frequency_variant")
-  } else if (rf < th$low_frequency_warning) {
-    flags <- c(flags, "low_frequency_variant")
+  if (row$relative_frequency < th$min_freq) {
+    flags <- c(flags, paste0("below_min_freq_", th$min_freq))
   }
 
-  dist_parent <- row$distance_to_nearest_more_abundant
-  fold_parent <- row$fold_less_abundant_than_parent
-  if (!is.na(dist_parent) && !is.na(fold_parent)) {
-    if (dist_parent <= th$oneoff_distance && fold_parent >= th$parent_fold_abundance) {
-      flags <- c(flags, "oneoff_from_much_more_abundant_variant")
-    }
-    if (dist_parent <= th$twooff_distance && fold_parent >= th$parent_fold_abundance &&
-        rf < min_rf) {
-      flags <- c(flags, "low_frequency_near_abundant_variant_possible_error_derivative")
-    }
-  }
-
-  if (rf < th$index_hop_relative_frequency) {
-    flags <- c(flags, "possible_index_hopping_or_low_level_contamination")
+  dist_nb <- row$distance_to_nearest_more_abundant_neighbor
+  fold_nb <- row$fold_less_abundant_than_nearest_neighbor
+  if (!is.na(dist_nb) && !is.na(fold_nb) &&
+      dist_nb <= th$oneoff_distance && fold_nb >= th$nearest_neighbor_diff) {
+    flags <- c(flags, "oneoff_from_much_more_abundant_variant")
   }
 
   if (row$lineage_call %in% c("possible_error", "strong_warning",
@@ -257,11 +227,10 @@ amplicon_qc <- function(variants, reference = NULL, site_profile = NULL,
   if (grepl("lineage_qc_invalid|lineage_qc_possible_error", flags)) {
     return("strong_warning")
   }
-  if (grepl("possible_index_hopping|oneoff_from_much_more_abundant|possible_error_derivative",
-            flags)) {
+  if (grepl("oneoff_from_much_more_abundant", flags)) {
     return("possible_amplicon_artifact")
   }
-  if (grepl("below_min_relative_frequency|low_frequency_variant", flags)) {
+  if (grepl("below_min_freq", flags)) {
     return("low_frequency_review")
   }
   if (lineage_call %in% c("known_lineage", "plausible_new_lineage")) {
@@ -273,10 +242,8 @@ amplicon_qc <- function(variants, reference = NULL, site_profile = NULL,
 #' @export
 print.malavi_amplicon_qc <- function(x, ...) {
   cat("MalAvi amplicon QC\n")
-  cat("------------------\n")
-  cat("Variants:", nrow(x), "\n")
-  th <- attr(x, "amplicon_thresholds")
-  cat("Minimum relative frequency:", th$min_relative_frequency, "\n\n")
+  cat("  variants: ", nrow(x), "\n", sep = "")
+  cat("  minimum relative frequency: ", attr(x, "min_freq"), "\n\n", sep = "")
 
   cols <- intersect(
     c("sequence", "count", "relative_frequency", "amplicon_call", "lineage_call",
@@ -284,6 +251,14 @@ print.malavi_amplicon_qc <- function(x, ...) {
       "amplicon_flags"),
     names(x)
   )
-  print(as.data.frame(x)[, cols, drop = FALSE])
+  show <- as.data.frame(x)[, cols, drop = FALSE]
+  ## abbreviate the (up to 479 bp) sequence so the print stays readable; the full
+  ## sequences are still in the returned object
+  if ("sequence" %in% names(show)) {
+    s <- show$sequence
+    long <- nchar(s) > 15
+    show$sequence <- ifelse(long, paste0(substr(s, 1, 12), "..."), s)
+  }
+  print(show)
   invisible(x)
 }

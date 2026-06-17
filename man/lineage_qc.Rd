@@ -9,94 +9,132 @@ lineage_qc(
   reference = NULL,
   site_profile = NULL,
   version = "latest",
-  genetic_code = 4,
+  expected_length = 479,
+  rare_base_frequency = 0.01,
   allow_ambiguity = FALSE,
-  pseudocount = 0.5,
   chimera_check = TRUE,
-  thresholds = default_lineage_qc_thresholds(),
-  return_details = TRUE
+  pseudocount = 0.01,
+  details = FALSE,
+  genetic_code = 4
 )
 }
 \arguments{
 \item{query}{A single candidate barcode as a character string. Whitespace is
-removed and the sequence is upper-cased.}
+stripped and the sequence is upper-cased.}
 
 \item{reference}{Reference alignment of curated lineages: a \code{DNAbin}
 alignment, a named character vector, or \code{NULL} (default) to use the
 bundled MalAvi alignment for \code{version}.}
 
 \item{site_profile}{Optional precomputed profile from
-\code{\link{build_malavi_site_profile}}. If \code{NULL} (default) it is built
-from \code{reference}. Supply it to avoid rebuilding when screening many
-sequences.}
+\code{\link{build_malavi_site_profile}}; built from \code{reference} when
+\code{NULL}. Supply it to avoid rebuilding when screening many sequences.}
 
 \item{version}{MalAvi release to use when \code{reference} is \code{NULL}; a
 date string or \code{"latest"} (default).}
 
-\item{genetic_code}{Genetic code for translation. Only NCBI code \code{4}
-(protozoan mitochondrial) is implemented and is correct for avian
-haemosporidians.}
+\item{expected_length}{Expected barcode length in bp (479 for MalAvi). A query
+of a different length is reported as \code{invalid_sequence}.}
+
+\item{rare_base_frequency}{Smoothed frequency below which a base counts as
+"rare" at its site (default 0.01).}
 
 \item{allow_ambiguity}{If \code{FALSE} (default), gaps and IUPAC ambiguity
 codes in the query are flagged.}
 
-\item{pseudocount}{Smoothing pseudocount passed to
-\code{build_malavi_site_profile} when \code{site_profile} is \code{NULL}.}
-
 \item{chimera_check}{Whether to run the sliding-window chimera screen
 (default \code{TRUE}).}
 
-\item{thresholds}{A list of thresholds and penalties; see
-\code{\link{default_lineage_qc_thresholds}}.}
+\item{pseudocount}{Smoothing pseudocount passed to
+\code{\link{build_malavi_site_profile}} when \code{site_profile} is
+\code{NULL}.}
 
-\item{return_details}{If \code{TRUE} (default), the result also carries the
-full translation, site-profile score, chimera result, and thresholds used.}
+\item{details}{If \code{TRUE}, the result also carries the full amino-acid
+translation, the per-site profile score, and the chimera result. Default
+\code{FALSE} keeps the object small.}
+
+\item{genetic_code}{Genetic code for translation. Only NCBI code \code{4}
+(protozoan mitochondrial) is implemented; it is the correct code for avian
+haemosporidians.}
 }
 \value{
-An object of class \code{malavi_lineage_qc}: a list with a one-row
-  \code{summary} data frame, the \code{call}, \code{overall_score},
-  \code{artifact_risk}, character vector of \code{flags}, the \code{nearest}
-  lineages table, and the \code{mutation_table} of differences from the
-  nearest lineage (plus \code{translation}, \code{site_profile_score},
-  \code{chimera}, and \code{thresholds} when \code{return_details = TRUE}).
+An object of class \code{malavi_lineage_qc}: a list with
+  \describe{
+    \item{\code{call}}{the overall verdict: \code{known_lineage} (exact match),
+      \code{plausible_new_lineage}, \code{review}, \code{strong_warning},
+      \code{possible_error}, \code{possible_chimera}, or
+      \code{invalid_or_strong_warning} / \code{invalid_sequence}.}
+    \item{\code{score}}{the plausibility score in \code{[0, 1]} (1 = typical,
+      0 = suspicious). Artifact risk is simply \code{1 - score}.}
+    \item{\code{summary}}{a one-row data frame with \code{call}, \code{score},
+      the \code{nearest_lineage} and \code{nearest_distance} (Hamming distance
+      to it), \code{n_mutations} versus that lineage, of which
+      \code{n_nonsynonymous} change the protein, and \code{n_stop_codons}.}
+    \item{\code{flags}}{the character vector of warnings (see \emph{Flags}).}
+    \item{\code{counts}}{a named integer vector with the full per-category
+      counts behind the score (invariant-site changes, never-observed bases,
+      rare bases, second-position changes, transversions).}
+    \item{\code{nearest}}{a data frame of the five nearest known lineages and
+      their distances.}
+    \item{\code{mutations}}{one row per difference from the nearest lineage,
+      annotated with codon position, amino-acid change, transition/transversion,
+      and whether the query base is seen at that site in MalAvi.}
+  }
+  With \code{details = TRUE} the list also holds \code{translation},
+  \code{site_profile_score}, and \code{chimera}.
 }
 \description{
-These are new experimental functions, that we're still testing. Please use
-with caution.
+\strong{Experimental, use with caution.} A lightweight plausibility screen for
+a single, already-aligned cytochrome \emph{b} barcode (479 bp by default). It
+does \strong{not} decide whether a lineage is real; it flags features that are
+surprising relative to curated MalAvi diversity so you can review them by hand.
+Read warnings as "worth a look", not "this is definitely an error".
 }
 \details{
-A lightweight plausibility screen for a single, aligned 479 bp MalAvi
-cytochrome \emph{b} barcode. It does \strong{not} decide whether a lineage is
-real; it flags features that are surprising relative to curated MalAvi
-diversity so that they can be reviewed by hand. Warnings should be read as
-"manual review recommended", not "this is definitely an error".
-
-The query must already be aligned to the MalAvi barcode (same length and frame
-as the reference, 479 bp by default). For an unaligned sequence, find its
-closest lineages first with \code{\link{blast_malavi}}. The screen checks:
-sequence length, gaps / ambiguity codes, stop codons (translated in frame 1
-under the protozoan mitochondrial genetic code, NCBI code 4), Hamming distance
-to the nearest known lineage, changes at invariant or rarely varying sites,
-bases never seen at a site, unusual nonsynonymous / second-codon-position /
-transversion changes relative to the nearest lineage, and a crude
-sliding-window chimera pattern.
-
-The penalties are summed and mapped to an \code{overall_score} in
-\code{[0, 1]} (1 = very typical of known MalAvi diversity, 0 = highly
-suspicious or invalid), with \code{artifact_risk = 1 - overall_score}. The
-score is a transparent, rule-based heuristic, \strong{not} a calibrated
-probability; treat it as a triage aid and adjust the weights and cutoffs via
-\code{thresholds} (see \code{\link{default_lineage_qc_thresholds}}).
+The query must already be aligned to the MalAvi barcode (same length and
+reading frame as the reference). For an unaligned sequence, find its closest
+lineages first with \code{\link{blast_malavi}}. The screen rolls a handful of
+checks into one \code{score} in \code{[0, 1]} (1 = typical of known MalAvi
+diversity, 0 = highly suspicious or invalid). The score is a transparent,
+rule-based heuristic, \strong{not} a calibrated probability.
 }
+\section{Flags}{
+
+\code{flags} is a character vector of short tags you can filter on. The ones
+you may see:
+\describe{
+  \item{\code{wrong_length_*}}{the query is not the expected barcode length.}
+  \item{\code{contains_gaps}, \code{contains_N}, \code{contains_ambiguity_codes},
+    \code{invalid_or_disallowed_characters}}{the query is not clean A/C/G/T.}
+  \item{\code{contains_stop_codon}}{translation (frame 1, genetic code 4)
+    contains a stop codon -- a strong sign of an error or wrong frame.}
+  \item{\code{exact_match_to_known_lineage}, \code{near_known_lineage},
+    \code{moderately_divergent_from_known_lineages},
+    \code{highly_divergent_from_known_lineages}}{how far the query sits from the
+    nearest known lineage.}
+  \item{\code{N_changes_at_invariant_sites}}{changes at sites that never vary
+    in MalAvi (very suspicious).}
+  \item{\code{N_bases_never_observed_at_their_sites}}{bases never seen at that
+    site in MalAvi.}
+  \item{\code{N_rare_bases_at_sites}}{bases that are real but rare at that site.}
+  \item{\code{N_nonsynonymous_changes_vs_nearest_lineage},
+    \code{N_second_codon_position_changes_vs_nearest_lineage},
+    \code{N_transversions_vs_nearest_lineage}}{unusual mutation types relative
+    to the nearest lineage.}
+  \item{\code{possible_chimera_or_mixed_template_pattern}}{the sliding-window
+    screen suggests a mosaic of two parents.}
+}
+}
+
 \examples{
 ## screen a known lineage against the bundled alignment (expect a clean pass)
 aln <- extract_alignment()
 seq <- paste(as.character(aln[1, ]), collapse = "")
 qc <- lineage_qc(seq)
 qc
-qc$summary$call
+qc$summary
 }
 \seealso{
-\code{\link{amplicon_qc}}, \code{\link{build_malavi_site_profile}},
-  \code{\link{blast_malavi}}, \code{\link{default_lineage_qc_thresholds}}
+\code{\link{amplicon_qc}}, \code{\link{lineage_screen}},
+  \code{\link{build_malavi_site_profile}}, \code{\link{blast_malavi}}
 }

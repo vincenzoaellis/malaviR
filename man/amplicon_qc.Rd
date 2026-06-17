@@ -9,70 +9,80 @@ amplicon_qc(
   reference = NULL,
   site_profile = NULL,
   version = "latest",
-  sequence_col = "sequence",
-  count_col = "count",
-  sample_col = NULL,
-  lineage_qc_thresholds = default_lineage_qc_thresholds(),
-  amplicon_thresholds = default_amplicon_qc_thresholds(),
+  min_freq = 0.01,
+  nearest_neighbor_diff = 10,
   allow_ambiguity = FALSE,
   chimera_check = TRUE
 )
 }
 \arguments{
-\item{variants}{A \code{data.frame} of variants with at least a sequence
-column and a count column (named by \code{sequence_col} / \code{count_col}).
-An optional \code{sample_col} runs the screen separately per sample;
-relative frequencies and parent comparisons are then computed within each
-sample.}
+\item{variants}{A two-column \code{data.frame}: the \strong{first} column holds
+the ASV sequences (each MalAvi-aligned, 479 bp) and the \strong{second}
+column holds their final read counts. The function errors if \code{variants}
+is not a data.frame, has fewer than two columns, has the columns in the wrong
+order (first not sequences, second not numeric counts), or contains any
+sequence that is not the reference length (479 bp for the bundled data) --
+ASVs must already be aligned to the MalAvi barcode. Only the first two
+columns are used.}
 
 \item{reference}{Reference alignment of curated lineages: a \code{DNAbin}
-alignment, a named character vector, or \code{NULL} (default) to use the
-bundled MalAvi alignment for \code{version}.}
+alignment you provide, a named character vector you provide, or \code{NULL} (default) to use the
+bundled MalAvi alignment.}
 
-\item{site_profile}{Optional precomputed profile from
-\code{\link{build_malavi_site_profile}}; built from \code{reference} if
-\code{NULL}.}
+\item{site_profile}{Optional precomputed per-site base profile from
+\code{\link{build_malavi_site_profile}} -- a table that records, for each
+alignment position, which bases occur across the reference lineages and how
+often (the consensus base, how variable the site is, and so on). It is what
+lets the screen judge whether a variant's base at a site looks typical. Built
+automatically from \code{reference} when \code{NULL}; supply it only to avoid
+rebuilding it when you call the function repeatedly.}
 
-\item{version}{MalAvi release to use when \code{reference} is \code{NULL}.}
+\item{version}{Which bundled MalAvi release to screen against. Defaults to
+\code{"latest"} (the newest bundled release); pass a date string such as
+\code{"2026-03-23"} only if you want an older one. Consulted only when
+\code{reference = NULL}.}
 
-\item{sequence_col, count_col}{Column names in \code{variants} holding the
-sequence and the read count.}
+\item{min_freq}{Within-pool relative frequency (read fraction) below which a
+variant is flagged as low-frequency (default 0.01, i.e. 1\% of the reads).}
 
-\item{sample_col}{Optional column name grouping variants into samples. If
-\code{NULL} (default), all variants are treated as one pool.}
-
-\item{lineage_qc_thresholds, amplicon_thresholds}{Threshold lists; see
-\code{\link{default_lineage_qc_thresholds}} and
-\code{\link{default_amplicon_qc_thresholds}}.}
+\item{nearest_neighbor_diff}{How many times more abundant a near (one base off)
+neighbor must be before a rarer variant is flagged as a likely sequencing
+error derived from that abundant variant (default 10).}
 
 \item{allow_ambiguity, chimera_check}{Passed through to \code{\link{lineage_qc}}
 for each variant.}
 }
 \value{
 An object of class \code{malavi_amplicon_qc}: the input
-  \code{data.frame} with added columns including \code{relative_frequency},
-  the nearest more-abundant variant and distance to it,
-  \code{lineage_call} / \code{lineage_score} / \code{artifact_risk} and
-  nearest MalAvi lineage from \code{\link{lineage_qc}}, the per-variant
-  \code{amplicon_flags}, and an overall \code{amplicon_call}.
+  \code{data.frame} with added columns, the most useful being
+  \describe{
+    \item{\code{relative_frequency}}{the variant's read fraction within the pool.}
+    \item{\code{distance_to_nearest_more_abundant_neighbor}, \code{fold_less_abundant_than_nearest_neighbor}}{
+      distance to, and fold-abundance of, the nearest more-abundant neighbor sequence.}
+    \item{\code{lineage_call}, \code{lineage_score}}{the \code{\link{lineage_qc}}
+      verdict and score for the variant's sequence.}
+    \item{\code{nearest_malavi_lineage}, \code{distance_to_nearest_malavi},
+      \code{n_nonsynonymous}}{nearest known MalAvi lineage, distance to it, and
+      non-synonymous changes versus it.}
+    \item{\code{lineage_flags}, \code{amplicon_flags}}{the warning
+      tags from the lineage screen and the abundance screen.}
+    \item{\code{amplicon_call}}{the overall per-variant verdict: \code{passes},
+      \code{review}, \code{low_frequency_review}, \code{possible_amplicon_artifact},
+      or \code{strong_warning}.}
+  }
 }
 \description{
-These are new experimental functions, that we're still testing. Please use
-with caution.
+\strong{Experimental, use with caution.} A QC screen for
+amplicon sequence variants (ASVs) from amplifications of the 479bp barcoding MalAvi region. My intention is that you would use this after
+sequencing with short-read deep sequencing technology (2 x 300bp), merging the pairs, and denoising with software like \pkg{dada2},
+vsearch, or unoise. Basically, it's a second check, because my experience is that those tools will still leave you with zillions of ASVs.
+The way it works is that you feed the function your ASVs (the actual sequence...needs to be MalAvi aligned 479bp) and the number of final reads it has (so a two column data frame).
+The function first evaluates the ASVs \code{\link{lineage_qc}}, then it tries to flag possible erroneous ASVs by computing some statistics related
+to their relative abundance in the pool and how genetically similar they are to abundant variants. You can use this to, for example, remove ASVs
+that appear in less than 5% of your reads, or rare ASVs that are very close (a bp off) from very abundant ASVs. I hope it will be useful as we start to do more deep sequencing.
 }
 \details{
-An abundance-aware QC screen for amplicon sequence variants (ASVs) produced by
-denoising tools such as \pkg{dada2}, vsearch, or unoise. Each variant is run
-through \code{\link{lineage_qc}} for biological plausibility, and additional
-flags use the read counts to catch likely technical artifacts: variants below
-a minimum relative abundance, variants a base or two away from a much more
-abundant variant (possible error derivatives), and very rare variants that
-may reflect index hopping or low-level contamination.
-
-As with \code{\link{lineage_qc}}, the variant sequences must already be
-aligned to the MalAvi barcode (same length and frame as the reference). The
-reference is coded and its site profile built once, then reused across all
-variants.
+The reference is coded and its site profile built once, then reused across all variants.
 }
 \examples{
 ## two known lineages plus a rare one-base error derivative of the first
@@ -86,5 +96,5 @@ aqc <- amplicon_qc(variants)
 aqc
 }
 \seealso{
-\code{\link{lineage_qc}}, \code{\link{default_amplicon_qc_thresholds}}
+\code{\link{lineage_qc}}, \code{\link{lineage_screen}}
 }

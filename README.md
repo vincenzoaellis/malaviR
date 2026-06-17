@@ -59,31 +59,89 @@ query <- gsub("-", "", paste(as.character(aln[1, ]), collapse = "")) # here we j
 blast_malavi(query, top_n = 5) # here's your BLAST-like output
 ```
 
-### Lineage and amplicon quality control
+### Lineage and amplicon quality control checks
 
-These are new experimental functions, that we're still testing. Please use with caution.
+These are new functions that I'm still trying to get right. Please treat them as **experimental**.
 
-`lineage_qc()` is a lightweight plausibility screen for a single candidate 479 bp MalAvi
-cytochrome *b* barcode (already aligned to the reference). It does not decide whether a lineage
-is real; it flags features that are surprising relative to curated MalAvi diversity — wrong
-length, gaps/ambiguities, stop codons (translated in frame under the protozoan mitochondrial
-genetic code), distance to the nearest known lineage, changes at invariant or rarely varying
-sites, bases never seen at a site, unusual nonsynonymous/second-position/transversion changes,
-and a crude sliding-window chimera pattern — and rolls them into a transparent, rule-based
-score (treat warnings as "manual review recommended", not "definitely an error"). `amplicon_qc()`
-extends this to denoised amplicon sequence variants (e.g. from dada2/vsearch) with read counts,
-adding abundance-aware flags for low-frequency variants, likely error derivatives of a much more
-abundant variant, and possible index hopping / contamination. Thresholds (including the
-rare-base-frequency cutoff) are user-settable via `default_lineage_qc_thresholds()` /
-`default_amplicon_qc_thresholds()`; build the per-site reference profile once with
-`build_malavi_site_profile()` when screening many sequences.
+`lineage_qc()` is a check of whether a MalAvi cyt b sequence (like one you get out of a Sanger sequence or elsewhere) looks plausible or not based on the larger database. It works by flagging strange or surprising features about a sequence including length (too short), gaps/ambiguities, stop codons (translated in frame under the protozoan mitochondrial
+genetic code...code 4), distance to the nearest lineage in the MalAvi alignment, mutations at invariant or rarely varying
+sites (it checks across the full MalAvi alignment), nonsynonymous/second-position/transversion changes,
+and a sliding-window chimera checker (basically checking if part of the sequence matches one MalAvi lineage and another part matches a different sequence...could be indicative of a sequence chimera). Then it computes a rather arbitrary
+`score` from 0 (suspicious) to 1 (expected based on the MalAvi alignment). This is creating flags or warnings for you to investigate, not telling you your sequence is necessarily wrong. `amplicon_qc()` is meant for working with cleaned amplicon sequence variants (ASVs) that you would get from sequencing the MalAvi region with short-read deep sequencing (2 x 300bp). After you go through a normal pipeline like dada2 or vsearch, my experience is that you will still have many ASVs and it's hard to know what's real. This will flag relatively rare ASVs and any that are genetically close (e.g., 1 bp different) from a very common ASV in the pool.
 
 ```r
-seq <- paste(as.character(aln[1, ]), collapse = "")   # your own aligned barcode here
-lineage_qc(seq)                                       # plausibility screen + flags
+seq <- paste(as.character(aln[1, ]), collapse = "")   # your own sequence here (should be aligned to MalAvi already)...this just grabs one of the existing MalAvi lineages
+lineage_qc(seq)                                       # see the report and investigate any flags
 
-variants <- data.frame(sequence = c(seq_a, seq_b), count = c(10000, 5))
-amplicon_qc(variants)                                 # abundance-aware ASV screen
+variants <- data.frame(sequence = c(seq_a, seq_b), count = c(10000, 5)) # the sequences need to be real and 479bp length aligned to MalAvi...what you'd get out of your amplicon seq project
+amplicon_qc(variants)                                 # check out the report...see if there are any suspicious ASVs in there that you will consider not analyzing further (there will be)
+```
+
+### Screening the whole database (studies vs. non-synonymous mutations)
+
+Staffan Bensch (the MalAvi curator) pointed out to me that lineages reported by only a single
+study may be more likely to carry non-synonymous changes in *cytb* than lineages found by
+multiple studies. That pattern would be consistent with some single-study lineages being
+sequencing errors. Two functions help you investigate this.
+
+`lineage_studies()` counts how many distinct studies report each lineage (from the references
+in the Hosts and Sites table — basically just a simple helper). `lineage_screen()` counts each
+lineage's **singleton** substitutions: bases that the lineage *alone* carries at a well-covered
+site, classified as synonymous, non-synonymous, or stop-codon-creating. A lineage reported by a
+single study that *also* carries singleton non-synonymous changes is the kind of thing I'd be
+wary of.
+
+```r
+library(dplyr)
+
+lineage_studies() %>%                                  # one row per lineage
+  select(lineage, n_studies, n_host_records, n_countries)
+
+# do single-study lineages carry more singleton non-synonymous changes?
+lineage_screen() %>%
+  filter(in_hosts_table) %>%
+  group_by(single_study = n_studies == 1) %>%
+  summarize(n = n(), mean_nonsyn = mean(n_singleton_nonsynonymous))
+#> # A tibble: 2 x 3
+#>   single_study     n mean_nonsyn
+#>   <lgl>        <int>       <dbl>
+#> 1 FALSE         1179      0.0102
+#> 2 TRUE          3571      0.0443   # ~4x higher among single-study lineages
+```
+
+You can sharpen the screen by restricting it to one parasite genus. The three haemosporidian
+genera are deeply divergent, so judging a singleton against only its own genus (rather than the
+pooled database) is more meaningful — and the pattern gets stronger:
+
+```r
+lineage_screen(genus = "Plasmodium") %>%
+  filter(in_hosts_table) %>%
+  group_by(single_study = n_studies == 1) %>%
+  summarize(n = n(), mean_nonsyn = mean(n_singleton_nonsynonymous))
+#> 1 FALSE          360      0.0139
+#> 2 TRUE          1045      0.175    # single-study Plasmodium lineages stand out even more
+```
+
+You can also focus on a phylogenetic group of your choosing. Here we take SGS1 (a widespread
+*P. relictum* lineage) and every lineage within 3 bp of it, then run the same comparison inside
+that little clade:
+
+```r
+aln  <- extract_alignment()
+m    <- toupper(as.character(aln))                       # one row per lineage
+name <- sub("^[A-Za-z]_([^_]+).*$", "\\1", rownames(m))  # bare lineage names
+sgs1 <- m[match("SGS1", name), ]
+
+is_base  <- function(x) x %in% c("A", "C", "G", "T")     # number of base differences from SGS1
+n_diff   <- apply(m, 1, function(s) sum(is_base(s) & is_base(sgs1) & s != sgs1))
+sgs1_grp <- name[n_diff <= 3]                            # SGS1 + its close relatives (62 lineages)
+
+lineage_screen() %>%
+  filter(in_hosts_table, lineage %in% sgs1_grp) %>%
+  group_by(single_study = n_studies == 1) %>%
+  summarize(n = n(), mean_nonsyn = mean(n_singleton_nonsynonymous))
+#> 1 FALSE           10      0
+#> 2 TRUE            39      0.0769   # within the SGS1 group it's the single-study lineages again
 ```
 
 ### Repeated haplotypes ("synonymies")

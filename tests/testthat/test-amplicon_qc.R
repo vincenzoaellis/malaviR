@@ -6,12 +6,6 @@ make_ref_amp <- function() {
   ape::as.DNAbin(rbind(ref1 = ref1, ref2 = ref2, ref3 = ref3))
 }
 
-small_lineage_thresholds <- function() {
-  th <- default_lineage_qc_thresholds()
-  th$expected_length <- 12
-  th
-}
-
 test_that("amplicon_qc returns the expected structure and per-variant calls", {
   ## two abundant known lineages plus a rare one-base derivative of the first
   variants <- data.frame(
@@ -19,13 +13,12 @@ test_that("amplicon_qc returns the expected structure and per-variant calls", {
     count    = c(10000, 4000, 5),
     stringsAsFactors = FALSE
   )
-  aqc <- amplicon_qc(variants, make_ref_amp(),
-                     lineage_qc_thresholds = small_lineage_thresholds(),
-                     chimera_check = FALSE)
+  aqc <- amplicon_qc(variants, make_ref_amp(), chimera_check = FALSE)
 
   expect_s3_class(aqc, "malavi_amplicon_qc")
   expect_true(all(c("relative_frequency", "lineage_call", "amplicon_call",
-                    "amplicon_flags", "nearest_malavi_lineage") %in% names(aqc)))
+                    "amplicon_flags", "nearest_malavi_lineage",
+                    "n_nonsynonymous") %in% names(aqc)))
   expect_equal(nrow(aqc), 3)
 
   ## the rare one-off derivative should be flagged as a likely amplicon artifact
@@ -37,31 +30,53 @@ test_that("amplicon_qc returns the expected structure and per-variant calls", {
   expect_true(all(aqc$amplicon_call[aqc$count > 1000] == "passes"))
 })
 
-test_that("amplicon_qc errors on missing columns", {
+test_that("amplicon_qc errors on a malformed two-column input", {
+  ## fewer than two columns
   expect_error(
-    amplicon_qc(data.frame(seq = "atgtttgggccc", count = 1),
+    amplicon_qc(data.frame(sequence = "atgtttgggccc"),
                 make_ref_amp(), chimera_check = FALSE),
-    "sequence_col"
+    "ASV"
   )
+  ## columns in the wrong order/type (counts first, sequences second)
   expect_error(
-    amplicon_qc(data.frame(sequence = "atgtttgggccc", n = 1),
+    amplicon_qc(data.frame(count = 1, sequence = "atgtttgggccc"),
                 make_ref_amp(), chimera_check = FALSE),
-    "count_col"
+    "look wrong"
   )
 })
 
-test_that("amplicon_qc computes relative frequencies within samples", {
+test_that("amplicon_qc errors when a sequence is not the reference length", {
   variants <- data.frame(
-    sequence = c("atgtttgggccc", "atgttcgggccc",
-                 "atgtttgggccc", "atgtttggaccc"),
-    count    = c(75, 25, 90, 10),
-    sample   = c("A", "A", "B", "B"),
+    sequence = c("atgtttgggccc", "atgtttgggcc"),   # second sequence is 11 bp
+    count    = c(100, 5),
     stringsAsFactors = FALSE
   )
-  aqc <- amplicon_qc(variants, make_ref_amp(), sample_col = "sample",
-                     lineage_qc_thresholds = small_lineage_thresholds(),
-                     chimera_check = FALSE)
-  ## frequencies are within-sample: each sample's relative_frequency sums to 1
-  by_sample <- tapply(aqc$relative_frequency, aqc$sample, sum)
-  expect_equal(as.numeric(by_sample), c(1, 1))
+  expect_error(
+    amplicon_qc(variants, make_ref_amp(), chimera_check = FALSE),
+    "reference alignment length"
+  )
+})
+
+test_that("amplicon_qc computes relative frequencies within the pool", {
+  variants <- data.frame(
+    sequence = c("atgtttgggccc", "atgttcgggccc", "atgtttggaccc"),
+    count    = c(75, 20, 5),
+    stringsAsFactors = FALSE
+  )
+  aqc <- amplicon_qc(variants, make_ref_amp(), chimera_check = FALSE)
+  ## relative frequencies are read fractions over the whole pool, summing to 1
+  expect_equal(sum(aqc$relative_frequency), 1)
+  expect_equal(nrow(aqc), 3)
+})
+
+test_that("amplicon_qc accepts a two-column frame by position, not by name", {
+  ## column names are irrelevant; the first column is sequences, second counts
+  variants <- data.frame(
+    asv   = c("atgtttgggccc", "atgttcgggccc"),
+    reads = c(100, 40),
+    stringsAsFactors = FALSE
+  )
+  aqc <- amplicon_qc(variants, make_ref_amp(), chimera_check = FALSE)
+  expect_equal(nrow(aqc), 2)
+  expect_true(all(c("sequence", "count") %in% names(aqc)))
 })

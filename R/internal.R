@@ -138,16 +138,11 @@
   ord <- trimws(hosts$ORDER_NAME)
   ok  <- !is.na(sp) & sp != ""
   sp <- sp[ok]; fam <- fam[ok]; ord <- ord[ok]
-  modal <- function(x) {
-    x <- x[!is.na(x) & x != "" & x != "N/A"]
-    if (!length(x)) return(NA_character_)
-    names(sort(table(x), decreasing = TRUE))[1]
-  }
   species <- sort(unique(sp))
   data.frame(
     species = species,
-    family  = vapply(species, function(s) modal(fam[sp == s]), character(1)),
-    order   = vapply(species, function(s) modal(ord[sp == s]), character(1)),
+    family  = vapply(species, function(s) .modal(fam[sp == s]), character(1)),
+    order   = vapply(species, function(s) .modal(ord[sp == s]), character(1)),
     row.names = NULL, stringsAsFactors = FALSE
   )
 }
@@ -376,7 +371,7 @@
 ## Per-site base profile of a reference alignment, given its character matrix.
 ## Smoothed frequencies use a pseudocount. Returns a data.frame with one row per
 ## alignment position (see build_malavi_site_profile() for the column meanings).
-.qc_site_profile <- function(charmat, pseudocount = 0.5) {
+.qc_site_profile <- function(charmat, pseudocount = 0.01) {
   codemat <- .qc_code_matrix(charmat)
   L <- ncol(codemat)
   bases <- c("A", "C", "G", "T")
@@ -407,7 +402,7 @@
   data.frame(
     position          = seq_len(L),
     codon_position    = .qc_codon_position(seq_len(L)),
-    n_nonmissing      = n_nonmissing,
+    n_seqs            = n_nonmissing,
     count_A           = counts[, "A"], count_C = counts[, "C"],
     count_G           = counts[, "G"], count_T = counts[, "T"],
     freq_A            = freqs[, "A"], freq_C = freqs[, "C"],
@@ -507,6 +502,141 @@
     )
   })
   do.call(rbind, rows)
+}
+
+## Fixed internal weights and cutoffs for the lineage QC score. These are
+## deliberately NOT user-facing arguments: they are the heuristic guts of the
+## plausibility score, tuned once, and exposing them as function arguments only
+## added clutter. The two knobs users actually want to change (expected_length
+## and rare_base_frequency) are plain arguments of lineage_qc(); everything else
+## lives here. .lineage_qc_settings() merges the two knobs with these weights
+## into the single list the QC core consumes.
+.lineage_qc_weights <- function() {
+  list(
+    ## penalty added to the running penalty per offending site/mutation
+    invariant_site_penalty  = 4,    # a change at a never-varying site
+    unobserved_base_penalty = 3,    # a base never seen at that site in MalAvi
+    rare_base_penalty       = 1.5,  # a base seen but rare at that site
+    nonsynonymous_penalty   = 1,    # an amino-acid-changing difference
+    second_position_penalty = 1.5,  # a 2nd-codon-position difference (often nonsyn)
+    transversion_penalty    = 0.75, # a transversion (rarer than a transition)
+
+    ## Hamming-distance bins to the nearest known lineage (flag wording only)
+    near_known_distance = 2,
+    divergent_distance  = 5,
+
+    ## sliding-window chimera screen
+    chimera_window = 120, chimera_step = 20,
+    chimera_delta_threshold = 3, chimera_min_parent_switches = 2,
+
+    ## final-score cutoffs that map the score to a call
+    pass_score = 0.85, review_score = 0.60, strong_warning_score = 0.35
+  )
+}
+
+## Assemble the full settings list the QC core uses from the two user-facing
+## knobs plus the fixed internal weights.
+.lineage_qc_settings <- function(expected_length = 479, rare_base_frequency = 0.01) {
+  c(list(expected_length = expected_length,
+         rare_base_frequency = rare_base_frequency),
+    .lineage_qc_weights())
+}
+
+## Abundance settings for amplicon_qc(). Two user-facing knobs (min_freq and
+## nearest_neighbor_diff); oneoff_distance is the fixed "one base off" cutoff used
+## to spot error derivatives of an abundant variant.
+.amplicon_qc_settings <- function(min_freq = 0.01, nearest_neighbor_diff = 10) {
+  list(
+    min_freq              = min_freq,
+    nearest_neighbor_diff = nearest_neighbor_diff,
+    oneoff_distance       = 1
+  )
+}
+
+## Most frequent non-empty label in a character vector (ties broken by sort
+## order). Used to assign one parasite genus / family / order to a lineage that
+## appears on many host rows.
+.modal <- function(x) {
+  x <- x[!is.na(x) & x != "" & x != "N/A"]
+  if (!length(x)) return(NA_character_)
+  names(sort(table(x), decreasing = TRUE))[1]
+}
+
+## ---------------------------------------------------------------------------
+## Helpers for the database-wide screen (lineage_studies(), lineage_screen()).
+## ---------------------------------------------------------------------------
+
+## Parse the genus-prefixed alignment sequence names into a bare lineage name
+## and a parasite genus. MalAvi alignment names look like "H_ABSUP01" or
+## "P_SGS1_Plasmodium_relictum": a one-letter genus prefix, the lineage name,
+## then an optional species suffix. The lineage name is the token between the
+## first and the next underscore; the genus comes from the prefix letter.
+.lineage_parse_names <- function(x) {
+  genus_code <- sub("^([A-Za-z]+)_.*$", "\\1", x)
+  lineage    <- sub("^[A-Za-z]+_([^_]+).*$", "\\1", x)
+  no_us <- !grepl("_", x)                 # names with no prefix at all
+  lineage[no_us]    <- x[no_us]
+  genus_code[no_us] <- NA_character_
+  map <- c(H = "Haemoproteus", L = "Leucocytozoon", P = "Plasmodium")
+  data.frame(seq_name = x, genus_code = genus_code,
+             genus = unname(map[genus_code]), lineage = lineage,
+             stringsAsFactors = FALSE)
+}
+
+## Count, per alignment row (lineage), the "singleton" substitutions: a base that
+## the lineage ALONE carries at a well-covered site (a singleton minority base,
+## differing from the site consensus). Singleton substitutions are the signature
+## of sequencing error -- a real, shared variant is carried by more than one
+## lineage. Each singleton substitution is classified, against the consensus codon
+## (frame 1, genetic code 4) with the singleton base swapped in, as synonymous,
+## non-synonymous, or stop-creating (a stop is also counted as non-synonymous).
+##
+## A site counts only if at least `min_cov_count` of the sequences carry an
+## unambiguous base there, so consensus is well defined and sparse alignment
+## columns do not masquerade as singleton substitutions. Operates on the coded
+## matrix (.qc_code_matrix) and the site profile (.qc_site_profile). Returns a
+## data.frame with one row per sequence, aligned with the rows of `codemat`.
+.qc_singleton_substitutions <- function(codemat, site_profile, min_cov_count,
+                                      code = .qc_genetic_code_4()) {
+  n_seq <- nrow(codemat)
+  L     <- ncol(codemat)
+  bases <- c("A", "C", "G", "T")
+  count_mat <- as.matrix(site_profile[, c("count_A", "count_C", "count_G", "count_T")])
+  major     <- site_profile$major_base          # consensus base per site (NA if all gaps)
+  major_idx <- match(major, bases)
+
+  n_subst <- integer(n_seq); n_non <- integer(n_seq)
+  n_syn   <- integer(n_seq); n_stop <- integer(n_seq)
+
+  for (b in 1:4) {
+    ## sites where base b is a singleton, the site is well covered, and b is not
+    ## the consensus base (so it is a genuine singleton deviation)
+    cols <- which(count_mat[, b] == 1L &
+                    site_profile$n_seqs >= min_cov_count &
+                    major_idx != b)
+    for (j in cols) {
+      i <- which(codemat[, j] == b)[1]          # the unique carrier of base b
+      n_subst[i] <- n_subst[i] + 1L
+
+      ## classify against the consensus codon with the singleton base swapped in
+      cs <- j - ((j - 1L) %% 3L)                # codon start (frame 1)
+      if (cs + 2L > L) next                     # incomplete trailing codon -> unclassified
+      cons <- major[cs:(cs + 2L)]
+      if (anyNA(cons)) next                     # consensus codon undefined -> unclassified
+      mut <- cons; mut[(j - cs) + 1L] <- bases[b]
+      cons_aa <- code[paste0(cons, collapse = "")]
+      mut_aa  <- code[paste0(mut,  collapse = "")]
+      if (is.na(cons_aa) || is.na(mut_aa)) next
+      if (mut_aa == "*") n_stop[i] <- n_stop[i] + 1L
+      if (mut_aa == cons_aa) n_syn[i] <- n_syn[i] + 1L else n_non[i] <- n_non[i] + 1L
+    }
+  }
+
+  data.frame(n_singleton_substitutions = n_subst,
+             n_singleton_nonsynonymous = n_non,
+             n_singleton_synonymous    = n_syn,
+             n_singleton_stop          = n_stop,
+             stringsAsFactors = FALSE)
 }
 
 ## Crude sliding-window chimera screen. For each window along the barcode, find
