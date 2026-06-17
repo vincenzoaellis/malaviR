@@ -82,15 +82,31 @@
   nrep     <- nrow(M)
   max_infl <- max(infl)
 
+  ## Blocking index to avoid the O(nrep^2) all-pairs comparison. A container
+  ## must agree with the short sequence at *every* one of the short sequence's
+  ## informative positions -- in particular at any single position we pick. So
+  ## for each short sequence we first restrict candidates to the reps that match
+  ## it at its most discriminating informative position (the (column, base) that
+  ## is rarest among the reps), then do the full check only on that small set.
+  ## This cannot miss a true container, so the resulting groups are identical to
+  ## the naive all-pairs version, just far fewer comparisons.
+  ## base_count[j, b] = number of reps carrying base b (1:4) at column j.
+  base_count <- matrix(0L, ncol(M), 4L)
+  for (b in 1:4) base_count[, b] <- colSums(M == b)
+
   merged_to <- seq_len(nrep)                 # rep index each rep merges into
   for (a in order(infl)) {                    # shortest first
     ## a zero-information sequence, or one already as complete as any other,
     ## cannot be contained in a *strictly* more complete sequence
     if (infl[a] == 0 || infl[a] == max_infl) next
-    cand <- which(infl > infl[a])             # only more complete reps can contain it
+    pos   <- which(M[a, ] > 0L)
+    bases <- M[a, pos]
+    ## pick a's most discriminating informative position (rarest base there),
+    ## then keep only strictly-more-complete reps that match a at that position
+    p0   <- pos[which.min(base_count[cbind(pos, bases)])]
+    cand <- which(infl > infl[a] & M[, p0] == M[a, p0])
     if (length(cand) == 0) next
-    pos <- which(M[a, ] > 0L)
-    eq  <- M[cand, pos, drop = FALSE] == matrix(M[a, pos], length(cand), length(pos),
+    eq  <- M[cand, pos, drop = FALSE] == matrix(bases, length(cand), length(pos),
                                                 byrow = TRUE)
     contains <- cand[rowSums(eq) == length(pos)]
     if (length(contains) > 0) {
