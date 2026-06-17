@@ -2,7 +2,7 @@
 
 <!-- badges: start -->
 [![r-universe status](https://vincenzoaellis.r-universe.dev/badges/malaviR)](https://vincenzoaellis.r-universe.dev/malaviR)
-[![r-universe downloads](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fvincenzoaellis.r-universe.dev%2Fapi%2Fpackages%2FmalaviR&query=%24._downloads.count&label=downloads&color=blue)](https://vincenzoaellis.r-universe.dev/malaviR)
+[![GitHub release](https://img.shields.io/github/v/tag/vincenzoaellis/malaviR?label=release&sort=semver&color=blue)](https://github.com/vincenzoaellis/malaviR/releases)
 <!-- badges: end -->
 
 An R interface to [MalAvi](https://wimanet-science.github.io/web/malavi/), the public
