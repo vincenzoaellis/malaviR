@@ -59,6 +59,33 @@ query <- gsub("-", "", paste(as.character(aln[1, ]), collapse = "")) # here we j
 blast_malavi(query, top_n = 5) # here's your BLAST-like output
 ```
 
+### Lineage and amplicon quality control
+
+These are new experimental functions, that we're still testing. Please use with caution.
+
+`lineage_qc()` is a lightweight plausibility screen for a single candidate 479 bp MalAvi
+cytochrome *b* barcode (already aligned to the reference). It does not decide whether a lineage
+is real; it flags features that are surprising relative to curated MalAvi diversity — wrong
+length, gaps/ambiguities, stop codons (translated in frame under the protozoan mitochondrial
+genetic code), distance to the nearest known lineage, changes at invariant or rarely varying
+sites, bases never seen at a site, unusual nonsynonymous/second-position/transversion changes,
+and a crude sliding-window chimera pattern — and rolls them into a transparent, rule-based
+score (treat warnings as "manual review recommended", not "definitely an error"). `amplicon_qc()`
+extends this to denoised amplicon sequence variants (e.g. from dada2/vsearch) with read counts,
+adding abundance-aware flags for low-frequency variants, likely error derivatives of a much more
+abundant variant, and possible index hopping / contamination. Thresholds (including the
+rare-base-frequency cutoff) are user-settable via `default_lineage_qc_thresholds()` /
+`default_amplicon_qc_thresholds()`; build the per-site reference profile once with
+`build_malavi_site_profile()` when screening many sequences.
+
+```r
+seq <- paste(as.character(aln[1, ]), collapse = "")   # your own aligned barcode here
+lineage_qc(seq)                                       # plausibility screen + flags
+
+variants <- data.frame(sequence = c(seq_a, seq_b), count = c(10000, 5))
+amplicon_qc(variants)                                 # abundance-aware ASV screen
+```
+
 ### Repeated haplotypes ("synonymies")
 
 Some incomplete MalAvi sequences (i.e., < 479 bp) match longer sequences but retain different

@@ -230,3 +230,326 @@
   rownames(synonymies) <- NULL
   list(synonymies = synonymies, kept = kept)
 }
+
+## ---------------------------------------------------------------------------
+## Sequence-QC helpers, shared by lineage_qc(), amplicon_qc(), and
+## build_malavi_site_profile(). These are intentionally dependency-light (no
+## Biostrings/DECIPHER): everything works with base R so the QC functions stay
+## part of the package core. Not exported.
+##
+## Throughout, a "reference" is the curated, aligned MalAvi barcode (479 bp by
+## default). Sequences are handled in two parallel representations:
+##   - a character matrix of upper-case bases (rows = sequences, cols = sites)
+##   - an integer matrix coding a/c/g/t -> 1:4 and everything else (gaps, Ns,
+##     ambiguity codes) -> 0L, i.e. "uninformative". The integer coding makes
+##     the hot paths (Hamming distance, nearest-lineage search, per-site base
+##     counts) fast and vectorized, the same trick used by .haplotype_groups().
+## ---------------------------------------------------------------------------
+
+## Upper-case a sequence and strip whitespace. Leaves gaps and ambiguity codes
+## in place so callers can decide how to treat them.
+.qc_clean_seq <- function(x) toupper(gsub("\\s+", "", x))
+
+## Resolve the `reference` argument to an upper-case character matrix (rows =
+## sequences with names, cols = alignment positions). Accepts a DNAbin matrix,
+## a named character vector of equal-length aligned strings, or NULL (in which
+## case the bundled MalAvi alignment for `version` is used).
+.qc_char_matrix <- function(reference = NULL, version = "latest") {
+  if (is.null(reference)) {
+    reference <- extract_alignment(version = version)
+  }
+  if (inherits(reference, "DNAbin")) {
+    ## as.character() on a DNAbin matrix returns a lower-case character matrix
+    m <- toupper(as.character(reference))
+    if (is.null(rownames(m))) {
+      stop("The reference alignment must have lineage names (row names).",
+           call. = FALSE)
+    }
+    return(m)
+  }
+  if (is.character(reference)) {
+    reference <- vapply(reference, .qc_clean_seq, character(1))
+    widths <- nchar(reference)
+    if (length(unique(widths)) != 1L) {
+      stop("All reference sequences must be aligned to the same length.",
+           call. = FALSE)
+    }
+    m <- do.call(rbind, strsplit(reference, "", fixed = TRUE))
+    if (is.null(rownames(m))) rownames(m) <- names(reference)
+    if (is.null(rownames(m))) {
+      rownames(m) <- paste0("reference_", seq_len(nrow(m)))
+    }
+    return(m)
+  }
+  stop("`reference` must be a DNAbin alignment, a named character vector, or NULL.",
+       call. = FALSE)
+}
+
+## Integer-code an upper-case character matrix: A/C/G/T -> 1:4, else 0L.
+## Preserves dimensions and row names.
+.qc_code_matrix <- function(charmat) {
+  code <- matrix(0L, nrow(charmat), ncol(charmat),
+                 dimnames = dimnames(charmat))
+  code[charmat == "A"] <- 1L
+  code[charmat == "C"] <- 2L
+  code[charmat == "G"] <- 3L
+  code[charmat == "T"] <- 4L
+  code
+}
+
+## Integer-code a single upper-case query (character vector of bases).
+.qc_code_vec <- function(qchars) {
+  qcode <- integer(length(qchars))
+  qcode[qchars == "A"] <- 1L
+  qcode[qchars == "C"] <- 2L
+  qcode[qchars == "G"] <- 3L
+  qcode[qchars == "T"] <- 4L
+  qcode
+}
+
+## Nearest reference lineages to a coded query, by Hamming distance computed
+## only over positions where BOTH the query and the reference carry an
+## unambiguous base (gaps/Ns are skipped). Vectorized over all references at
+## once: no per-reference re-parsing. Returns a data.frame ordered by ascending
+## distance with columns lineage, distance, and index (row in refcode).
+.qc_nearest <- function(qcode, refcode, ref_names, top_n = 5L) {
+  n <- nrow(refcode)
+  L <- ncol(refcode)
+  qmat <- matrix(qcode, n, L, byrow = TRUE)        # broadcast the query
+  both_known <- (refcode > 0L) & (qmat > 0L)       # positions comparable in both
+  mism <- both_known & (refcode != qmat)           # disagreements among those
+  distance <- rowSums(mism)
+  ord <- order(distance)
+  ord <- ord[seq_len(min(top_n, n))]
+  data.frame(lineage = ref_names[ord], distance = distance[ord], index = ord,
+             stringsAsFactors = FALSE)
+}
+
+## NCBI genetic code 4 (mold, protozoan, and coelenterate mitochondrial code):
+## TGA = W (not stop), ATA = M, and TAA/TAG remain stops. This is the code that
+## fits the avian haemosporidian (apicomplexan) cytochrome b barcode: across the
+## bundled alignment, frame 1 (positions 1,4,7,...) is essentially stop-free
+## under this code. Hardcoded to avoid a Biostrings dependency.
+.qc_genetic_code_4 <- function() {
+  c(
+    TTT = "F", TTC = "F", TTA = "L", TTG = "L",
+    TCT = "S", TCC = "S", TCA = "S", TCG = "S",
+    TAT = "Y", TAC = "Y", TAA = "*", TAG = "*",
+    TGT = "C", TGC = "C", TGA = "W", TGG = "W",
+    CTT = "L", CTC = "L", CTA = "L", CTG = "L",
+    CCT = "P", CCC = "P", CCA = "P", CCG = "P",
+    CAT = "H", CAC = "H", CAA = "Q", CAG = "Q",
+    CGT = "R", CGC = "R", CGA = "R", CGG = "R",
+    ATT = "I", ATC = "I", ATA = "M", ATG = "M",
+    ACT = "T", ACC = "T", ACA = "T", ACG = "T",
+    AAT = "N", AAC = "N", AAA = "K", AAG = "K",
+    AGT = "S", AGC = "S", AGA = "S", AGG = "S",
+    GTT = "V", GTC = "V", GTA = "V", GTG = "V",
+    GCT = "A", GCC = "A", GCA = "A", GCG = "A",
+    GAT = "D", GAC = "D", GAA = "E", GAG = "E",
+    GGT = "G", GGC = "G", GGA = "G", GGG = "G"
+  )
+}
+
+## Codon position (1, 2, or 3) of a 1-based alignment position, assuming the
+## barcode is in reading frame 1 (translation starts at position 1).
+.qc_codon_position <- function(position) ((position - 1L) %% 3L) + 1L
+
+## TRUE if a base change is a transition (purine<->purine or pyrimidine<->
+## pyrimidine); FALSE for a transversion. Non-A/C/G/T inputs give FALSE.
+.qc_is_transition <- function(from, to) {
+  paste0(from, to) %in% c("AG", "GA", "CT", "TC")
+}
+
+## Translate an upper-case base vector in frame 1 under a genetic-code table.
+## Any codon containing a gap/N/ambiguity (so not in the table) becomes "X".
+.qc_translate <- function(qchars, code = .qc_genetic_code_4()) {
+  n_codons <- length(qchars) %/% 3L
+  if (n_codons == 0L) return(character(0))
+  idx <- seq_len(n_codons * 3L)
+  codons <- apply(matrix(qchars[idx], nrow = 3L), 2L, paste0, collapse = "")
+  aa <- unname(code[codons])
+  aa[is.na(aa)] <- "X"
+  aa
+}
+
+## Per-site base profile of a reference alignment, given its character matrix.
+## Smoothed frequencies use a pseudocount. Returns a data.frame with one row per
+## alignment position (see build_malavi_site_profile() for the column meanings).
+.qc_site_profile <- function(charmat, pseudocount = 0.5) {
+  codemat <- .qc_code_matrix(charmat)
+  L <- ncol(codemat)
+  bases <- c("A", "C", "G", "T")
+
+  ## per-position counts of each base (columns A,C,G,T)
+  counts <- vapply(1:4, function(b) colSums(codemat == b), numeric(L))
+  colnames(counts) <- bases
+  n_nonmissing <- rowSums(counts)
+
+  ## smoothed frequencies (pseudocount on each of the four bases)
+  freqs <- (counts + pseudocount) / (n_nonmissing + length(bases) * pseudocount)
+
+  ## major base = most common observed base; undefined (NA) for all-gap columns
+  major_idx <- max.col(counts, ties.method = "first")
+  major_base <- bases[major_idx]
+  major_base[n_nonmissing == 0] <- NA_character_
+
+  n_observed <- rowSums(counts > 0)
+  observed_alleles <- apply(counts > 0, 1L,
+                            function(keep) paste(bases[keep], collapse = ""))
+
+  ## Shannon entropy from the empirical (unsmoothed) frequencies, 0*log0 := 0
+  emp <- counts / n_nonmissing
+  ent_terms <- emp * log2(emp)
+  ent_terms[!is.finite(ent_terms)] <- 0
+  entropy <- -rowSums(ent_terms)
+
+  data.frame(
+    position          = seq_len(L),
+    codon_position    = .qc_codon_position(seq_len(L)),
+    n_nonmissing      = n_nonmissing,
+    count_A           = counts[, "A"], count_C = counts[, "C"],
+    count_G           = counts[, "G"], count_T = counts[, "T"],
+    freq_A            = freqs[, "A"], freq_C = freqs[, "C"],
+    freq_G            = freqs[, "G"], freq_T = freqs[, "T"],
+    major_base        = major_base,
+    n_observed_alleles = n_observed,
+    observed_alleles  = observed_alleles,
+    invariant         = n_observed == 1,
+    entropy           = entropy,
+    stringsAsFactors  = FALSE
+  )
+}
+
+## Score a query (upper-case base vector) against a site profile: per-site
+## smoothed log-probability of the query base, plus a per-site flag
+## ("ok", "rare_base_at_site", "invariant_site_change",
+## "base_never_observed_at_site", or "ambiguous_or_invalid").
+.qc_score_site <- function(qchars, profile, rare_freq = 0.01) {
+  L <- nrow(profile)
+  bidx <- match(qchars, c("A", "C", "G", "T"))     # NA for gaps/Ns/ambiguities
+  valid <- !is.na(bidx)
+
+  freq_mat <- as.matrix(profile[, c("freq_A", "freq_C", "freq_G", "freq_T")])
+  count_mat <- as.matrix(profile[, c("count_A", "count_C", "count_G", "count_T")])
+
+  p <- rep(NA_real_, L)
+  observed <- rep(NA, L)
+  p[valid] <- freq_mat[cbind(which(valid), bidx[valid])]
+  observed[valid] <- count_mat[cbind(which(valid), bidx[valid])] > 0
+
+  flags <- rep("ok", L)
+  flags[!valid] <- "ambiguous_or_invalid"
+  flags[valid & !observed] <- "base_never_observed_at_site"
+  invariant_change <- valid & observed & profile$invariant &
+    qchars != profile$major_base
+  flags[invariant_change] <- "invariant_site_change"
+  rare <- valid & observed & !profile$invariant & p < rare_freq
+  flags[rare] <- "rare_base_at_site"
+
+  list(log_likelihood = sum(log(p), na.rm = TRUE),
+       mean_log_probability = mean(log(p), na.rm = TRUE),
+       site_flags = flags)
+}
+
+## Annotate the differences between a query and its nearest reference sequence
+## (both upper-case base vectors). Only positions where both carry an
+## unambiguous base are considered, so gaps in a partial reference do not appear
+## as spurious mutations. Returns a per-mutation data.frame.
+.qc_annotate_mutations <- function(qchars, rchars, profile,
+                                   code = .qc_genetic_code_4()) {
+  empty <- data.frame(
+    position = integer(0), nearest_base = character(0), query_base = character(0),
+    codon_position = integer(0), site_entropy = numeric(0),
+    site_invariant = logical(0), query_base_observed_at_site = logical(0),
+    transition = logical(0), transversion = logical(0),
+    nearest_codon = character(0), query_codon = character(0),
+    nearest_aa = character(0), query_aa = character(0),
+    synonymous = logical(0), nonsynonymous = logical(0),
+    warning = character(0), stringsAsFactors = FALSE
+  )
+
+  both <- qchars %in% c("A", "C", "G", "T") & rchars %in% c("A", "C", "G", "T")
+  diff_positions <- which(both & qchars != rchars)
+  if (length(diff_positions) == 0L) return(empty)
+
+  rows <- lapply(diff_positions, function(pos) {
+    ## the codon (frame 1) containing this position
+    codon_start <- pos - ((pos - 1L) %% 3L)
+    codon_idx <- codon_start:(codon_start + 2L)
+    nearest_codon <- paste0(rchars[codon_idx], collapse = "")
+    query_codon   <- paste0(qchars[codon_idx], collapse = "")
+    nearest_aa <- unname(code[nearest_codon]); if (is.na(nearest_aa)) nearest_aa <- "X"
+    query_aa   <- unname(code[query_codon]);   if (is.na(query_aa))   query_aa   <- "X"
+
+    observed_alleles <- strsplit(profile$observed_alleles[pos], "")[[1]]
+    query_observed <- qchars[pos] %in% observed_alleles
+    is_trans <- .qc_is_transition(rchars[pos], qchars[pos])
+
+    bits <- character(0)
+    if (isTRUE(profile$invariant[pos])) bits <- c(bits, "invariant_site_change")
+    if (!query_observed)                bits <- c(bits, "query_base_never_observed_at_site")
+    if (query_aa == "*")                bits <- c(bits, "stop_codon")
+    if (query_aa != nearest_aa)         bits <- c(bits, "nonsynonymous_change")
+    if (.qc_codon_position(pos) == 2L)  bits <- c(bits, "second_codon_position_change")
+    if (!is_trans)                      bits <- c(bits, "transversion")
+
+    data.frame(
+      position = pos, nearest_base = rchars[pos], query_base = qchars[pos],
+      codon_position = .qc_codon_position(pos),
+      site_entropy = profile$entropy[pos], site_invariant = profile$invariant[pos],
+      query_base_observed_at_site = query_observed,
+      transition = is_trans, transversion = !is_trans,
+      nearest_codon = nearest_codon, query_codon = query_codon,
+      nearest_aa = nearest_aa, query_aa = query_aa,
+      synonymous = nearest_aa == query_aa, nonsynonymous = nearest_aa != query_aa,
+      warning = paste(bits, collapse = ";"), stringsAsFactors = FALSE
+    )
+  })
+  do.call(rbind, rows)
+}
+
+## Crude sliding-window chimera screen. For each window along the barcode, find
+## the nearest reference lineage; count how often that nearest lineage switches
+## from window to window, and compare the best single full-length parent with a
+## rough two-parent mosaic distance. This is a heuristic flag for manual review,
+## NOT a formal recombination test.
+.qc_detect_chimera <- function(qcode, refcode, ref_names,
+                               window = 120L, step = 20L, top_n = 1L) {
+  L <- length(qcode)
+  starts <- seq(1L, L - window + 1L, by = step)
+  if (utils::tail(starts, 1L) + window - 1L < L) {
+    starts <- c(starts, L - window + 1L)        # make sure the tail is covered
+  }
+
+  win <- lapply(starts, function(s) {
+    cols <- s:(s + window - 1L)
+    nearest <- .qc_nearest(qcode[cols], refcode[, cols, drop = FALSE],
+                           ref_names, top_n = top_n)
+    data.frame(window_start = s, window_end = s + window - 1L,
+               nearest_lineage = nearest$lineage[1],
+               nearest_distance = nearest$distance[1],
+               stringsAsFactors = FALSE)
+  })
+  windows <- do.call(rbind, win)
+
+  parent_switches <- sum(windows$nearest_lineage[-1] !=
+                           windows$nearest_lineage[-nrow(windows)])
+
+  full_nearest <- .qc_nearest(qcode, refcode, ref_names, top_n = 5L)
+  best_single_distance <- full_nearest$distance[1]
+
+  ## rough two-parent mosaic: sum the best per-window distances, rescaled to the
+  ## full barcode length (windows overlap, hence the scaling). Intentionally
+  ## approximate -- see the "future refinements" note in the QC roadmap.
+  best_window_distance_sum <- sum(windows$nearest_distance)
+  approx_two_parent <- best_window_distance_sum *
+    (L / (nrow(windows) * window))
+  chimera_delta <- best_single_distance - approx_two_parent
+
+  list(windows = windows, best_single_lineage = full_nearest$lineage[1],
+       best_single_distance = best_single_distance,
+       parent_switches = parent_switches,
+       approximate_two_parent_distance = approx_two_parent,
+       chimera_delta = chimera_delta)
+}
