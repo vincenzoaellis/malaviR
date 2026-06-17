@@ -24,6 +24,20 @@ test_that("extract_table returns tables and errors on a bad name", {
   expect_error(extract_table(c("references", "vector_data")), "single table name")
 })
 
+test_that("bundled tables carry no blank-cell export artifact", {
+  ## A malformed spreadsheet export can make blank cells read back as the
+  ## literal first-column name (e.g. "LINEAGE_NAME") across many columns. Guard
+  ## against ever shipping that: no value should equal its own table's first
+  ## column name. (See data-raw/process_release.R, which strips it.)
+  tables <- extract_table("all")
+  for (nm in names(tables)) {
+    df <- tables[[nm]]
+    col1 <- names(df)[1]
+    bad <- sum(vapply(df, function(col) sum(col == col1, na.rm = TRUE), integer(1)))
+    expect_identical(bad, 0L, info = paste("artifact cells in", nm))
+  }
+})
+
 test_that("extract_alignment returns a DNAbin and subsets by genus", {
   a <- extract_alignment()
   expect_s3_class(a, "DNAbin")

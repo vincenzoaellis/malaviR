@@ -15,6 +15,12 @@
 #' Either the descriptive name above or its short \code{snake_case} key may be
 #' supplied.
 #'
+#' Note: in the bundled 2026-03-23 release the source spreadsheets encoded some
+#' blank cells in a way that made them read back as the literal string
+#' \code{"LINEAGE_NAME"} (mostly in \code{grand_lineage_summary}, and a few in
+#' \code{vector_data}). These have been reset to \code{NA} when building the
+#' bundled data; all other values are verbatim from MalAvi.
+#'
 #' @param table Name of the table to return (see Details), or \code{"all"} to
 #'   return a named list of all five tables. Defaults to \code{"Hosts and Sites Table"}.
 #' @param version MalAvi release to read, as a date string (e.g.

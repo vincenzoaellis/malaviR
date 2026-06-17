@@ -78,6 +78,56 @@ tables <- lapply(tables, as.data.frame)  # plain data.frames, not tibbles
 for (nm in names(tables)) message(sprintf("  %-22s %d rows x %d cols",
                                           nm, nrow(tables[[nm]]), ncol(tables[[nm]])))
 
+## --- detect + strip the "blank cell" export artifact -------------------------
+## Some MalAvi release spreadsheets encode an empty cell as a shared-string cell
+## with no value (<c t="s"><v/></c>). A reader that resolves the missing index
+## lands on shared string 0, which is the very first header in the file (column
+## A's name, e.g. "LINEAGE_NAME"). Blank cells therefore surface as the literal
+## column-1 name scattered across many columns. The signature is mechanism-bound:
+## the bogus value always equals names(df)[1]. We map those cells back to NA, and
+## report what we changed so that a *new* kind of malformation in a future
+## release is noticed here, before anything is shipped.
+##
+## scan_artifact(): count, per column, cells equal to the table's first-column
+## name (the artifact value). Returns a named integer vector.
+scan_artifact <- function(df) {
+  col1 <- names(df)[1]
+  vapply(df, function(col) sum(col == col1, na.rm = TRUE), integer(1))
+}
+## strip_artifact(): set those cells to NA (character columns only).
+strip_artifact <- function(df) {
+  col1 <- names(df)[1]
+  for (j in seq_along(df)) {
+    if (is.character(df[[j]])) {
+      hit <- !is.na(df[[j]]) & df[[j]] == col1
+      df[[j]][hit] <- NA
+    }
+  }
+  df
+}
+
+message("Scanning tables for the blank-cell export artifact...")
+for (nm in names(tables)) {
+  before <- scan_artifact(tables[[nm]])
+  n <- sum(before)
+  if (n > 0) {
+    message(sprintf("  %-22s %d artifact cell(s) -> NA  [cols: %s]",
+                    nm, n, paste(names(before)[before > 0], collapse = ", ")))
+    tables[[nm]] <- strip_artifact(tables[[nm]])
+  } else {
+    message(sprintf("  %-22s clean", nm))
+  }
+}
+## Pre-ship guard: refuse to bundle if any table still carries the artifact
+## (i.e. a value identical to its own first-column name). This catches a future
+## release whose malformation does not match the strip we just applied.
+remaining <- vapply(tables, function(df) sum(scan_artifact(df)), integer(1))
+if (any(remaining > 0)) {
+  stop("Export artifact still present after stripping in: ",
+       paste(names(remaining)[remaining > 0], collapse = ", "),
+       ". Inspect the source .xlsx before shipping.", call. = FALSE)
+}
+
 message("Reading alignment...")
 fas <- pick("MalAvi", "fas")
 alignment <- ape::read.dna(fas, format = "fasta")

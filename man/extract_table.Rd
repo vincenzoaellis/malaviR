@@ -33,6 +33,12 @@ The bundled release provides five tables:
 }
 Either the descriptive name above or its short \code{snake_case} key may be
 supplied.
+
+Note: in the bundled 2026-03-23 release the source spreadsheets encoded some
+blank cells in a way that made them read back as the literal string
+\code{"LINEAGE_NAME"} (mostly in \code{grand_lineage_summary}, and a few in
+\code{vector_data}). These have been reset to \code{NA} when building the
+bundled data; all other values are verbatim from MalAvi.
 }
 \examples{
 hosts <- extract_table("Hosts and Sites Table")
