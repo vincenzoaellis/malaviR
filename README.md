@@ -79,7 +79,7 @@ amplicon_qc(variants)                                 # check out the report...s
 
 ### Screening the whole database (studies vs. non-synonymous mutations)
 
-Staffan Bensch (the MalAvi curator) pointed out to me that lineages reported by only a single
+Staffan Bensch pointed out to me that lineages reported by only a single
 study may be more likely to carry non-synonymous changes in *cytb* than lineages found by
 multiple studies. That pattern would be consistent with some single-study lineages being
 sequencing errors. Two functions help you investigate this.
@@ -107,9 +107,7 @@ lineage_screen() %>%
 #> 2 TRUE          3571      0.0443   # ~4x higher among single-study lineages
 ```
 
-You can sharpen the screen by restricting it to one parasite genus. The three haemosporidian
-genera are deeply divergent, so judging a singleton against only its own genus (rather than the
-pooled database) is more meaningful — and the pattern gets stronger:
+You can also restrict to one parasite genus:
 
 ```r
 lineage_screen(genus = "Plasmodium") %>%
@@ -118,21 +116,20 @@ lineage_screen(genus = "Plasmodium") %>%
   group_by(single_study) %>%
   summarize(n = n(), mean_nonsyn = mean(n_singleton_nonsynonymous))
 #> 1 FALSE          360      0.0139
-#> 2 TRUE          1045      0.175    # single-study Plasmodium lineages stand out even more
+#> 2 TRUE          1045      0.175    
 ```
 
-You can also focus on a phylogenetic group of your choosing. Here we take SGS1 (a widespread
+You can also focus on a phylogenetic group. For example, here we take SGS1 (a
 *P. relictum* lineage) and every lineage within 3 bp of it, then run the same comparison inside
-that little clade. SGS1 is *Plasmodium*, so we measure genetic distances within that genus.
-`clean_names()` turns the alignment's prefixed tip labels (e.g. `P_SGS1_Plasmodium_relictum`)
-into the bare lineage names the screen uses, and `ape::dist.dna()` gives the genetic distance
-(here the proportion of sites that differ, so 3 bp over the 479 bp barcode is a `3 / 479` cutoff):
+that clade. We measure genetic distances within *Plasmodium* only because it helps with speed.
+`clean_names()` turns the alignment's genus-prefixed tip labels
+into the regular lineage names, and `ape::dist.dna()` is used for calculating the genetic distances:
 
 ```r
 library(ape)
 
 aln <- extract_alignment(genus = "Plasmodium")
-rownames(aln) <- clean_names(rownames(aln))                 # bare lineage names (SGS1, GRW04, ...)
+rownames(aln) <- clean_names(rownames(aln))                 
 
 d <- dist.dna(aln, model = "raw", pairwise.deletion = TRUE, as.matrix = TRUE)
 near_sgs1 <- names(which(d["SGS1", ] <= 3 / 479))           # SGS1 + lineages within 3 bp of it
@@ -143,7 +140,7 @@ lineage_screen() %>%
   group_by(single_study) %>%
   summarize(n = n(), mean_nonsyn = mean(n_singleton_nonsynonymous))
 #> 1 FALSE           10      0
-#> 2 TRUE            35      0.0857   # within the SGS1 group it's the single-study lineages again
+#> 2 TRUE            35      0.0857   # similar pattern
 ```
 
 ### Repeated haplotypes ("synonymies")
