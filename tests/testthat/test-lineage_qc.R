@@ -85,6 +85,25 @@ test_that("lineage_qc keeps full category counts and details on request", {
   expect_false(is.null(qc2$translation))
 })
 
+test_that("an exact match outranks an N-containing near-twin at distance 0", {
+  ## Regression for the .qc_nearest tie-break bug: distance is computed with
+  ## pairwise deletion (a reference N is skipped, not a mismatch), so a reference
+  ## that is identical to the query except for one N ties a true exact match at
+  ## distance 0. The N-twin is placed FIRST here so that the old arbitrary
+  ## tie-break (alignment order) would wrongly report it; the fix breaks ties by
+  ## most comparable positions, so the genuine full-length exact match wins.
+  ## (Mirrors the real case: a perfect P_SEIAUR01 ASV was mislabeled P_CARCAR11,
+  ## whose MalAvi reference carries a single N.)
+  ntwin <- strsplit("atgtttgggccn", "")[[1]]   # identical to query but N at pos 12
+  clean <- strsplit("atgtttgggccc", "")[[1]]   # the genuine exact match
+  ref   <- ape::as.DNAbin(rbind(ntwin = ntwin, clean = clean))
+
+  qc <- lineage_qc("atgtttgggccc", ref, expected_length = 12, chimera_check = FALSE)
+  expect_equal(qc$summary$nearest_distance, 0)
+  expect_true("exact_match_to_known_lineage" %in% qc$flags)
+  expect_equal(qc$summary$nearest_lineage, "clean")   # not the N-twin
+})
+
 test_that("lineage_qc rejects unsupported genetic codes", {
   expect_error(lineage_qc("atgtttgggccc", make_ref(), genetic_code = 1),
                "genetic_code = 4")

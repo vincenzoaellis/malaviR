@@ -306,7 +306,23 @@
 ## only over positions where BOTH the query and the reference carry an
 ## unambiguous base (gaps/Ns are skipped). Vectorized over all references at
 ## once: no per-reference re-parsing. Returns a data.frame ordered by ascending
-## distance with columns lineage, distance, and index (row in refcode).
+## distance with columns lineage, distance, n_comparable, and index (row in
+## refcode).
+##
+## Tie-break note: distance uses pairwise deletion -- a position where the
+## reference carries an N/gap is skipped, not counted as a mismatch. That is
+## deliberate, so genuinely partial reference entries (e.g. lineages whose MalAvi
+## record is terminally gapped) can still match a full-length query. But it also
+## means a reference that is identical to the query EXCEPT for a single ambiguous
+## base ties a true, fully-overlapping exact match at distance 0: the ambiguous
+## position is simply dropped from the comparison. With only `order(distance)` the
+## winner among such ties was then decided by arbitrary alignment order, which
+## could report the ambiguous near-twin (e.g. P_CARCAR11, which carries one N) in
+## place of the genuine exact match (P_SEIAUR01) -- silently mislabeling a perfect
+## ASV. We therefore break ties by DESCENDING number of comparable positions, so
+## the most-complete match wins: a real exact match is never displaced by an
+## N-padded one, while a uniquely-matching partial entry (the only candidate at
+## its distance) still wins because it has no competitor to lose the tie to.
 .qc_nearest <- function(qcode, refcode, ref_names, top_n = 5L) {
   n <- nrow(refcode)
   L <- ncol(refcode)
@@ -314,9 +330,11 @@
   both_known <- (refcode > 0L) & (qmat > 0L)       # positions comparable in both
   mism <- both_known & (refcode != qmat)           # disagreements among those
   distance <- rowSums(mism)
-  ord <- order(distance)
+  n_comparable <- rowSums(both_known)              # positions actually compared
+  ord <- order(distance, -n_comparable)            # ties -> most-complete match wins
   ord <- ord[seq_len(min(top_n, n))]
-  data.frame(lineage = ref_names[ord], distance = distance[ord], index = ord,
+  data.frame(lineage = ref_names[ord], distance = distance[ord],
+             n_comparable = n_comparable[ord], index = ord,
              stringsAsFactors = FALSE)
 }
 
