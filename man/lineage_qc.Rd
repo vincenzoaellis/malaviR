@@ -135,6 +135,6 @@ qc
 qc$summary
 }
 \seealso{
-\code{\link{amplicon_qc}}, \code{\link{lineage_screen}},
+\code{\link{lineage_screen}},
   \code{\link{build_malavi_site_profile}}, \code{\link{blast_malavi}}
 }

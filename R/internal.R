@@ -227,7 +227,7 @@
 }
 
 ## ---------------------------------------------------------------------------
-## Sequence-QC helpers, shared by lineage_qc(), amplicon_qc(), and
+## Sequence-QC helpers, shared by lineage_qc() and
 ## build_malavi_site_profile(). These are intentionally dependency-light (no
 ## Biostrings/DECIPHER): everything works with base R so the QC functions stay
 ## part of the package core. Not exported.
@@ -558,17 +558,6 @@
   c(list(expected_length = expected_length,
          rare_base_frequency = rare_base_frequency),
     .lineage_qc_weights())
-}
-
-## Abundance settings for amplicon_qc(). Two user-facing knobs (min_freq and
-## nearest_neighbor_diff); oneoff_distance is the fixed "one base off" cutoff used
-## to spot error derivatives of an abundant variant.
-.amplicon_qc_settings <- function(min_freq = 0.01, nearest_neighbor_diff = 10) {
-  list(
-    min_freq              = min_freq,
-    nearest_neighbor_diff = nearest_neighbor_diff,
-    oneoff_distance       = 1
-  )
 }
 
 ## Most frequent non-empty label in a character vector (ties broken by sort

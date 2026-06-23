@@ -4,8 +4,8 @@
 
 #' Build a per-site base profile of a MalAvi alignment
 #'
-#' \strong{Experimental.} A helper used by \code{\link{lineage_qc}} and
-#' \code{\link{amplicon_qc}}. In an aligned set of sequences, every column (a
+#' \strong{Experimental.} A helper used by \code{\link{lineage_qc}}. In an
+#' aligned set of sequences, every column (a
 #' "site", i.e. one position along the 479 bp barcode) lines up the same base
 #' across all lineages. This function walks the alignment column by column and
 #' records, for each site, which DNA bases (A/C/G/T) occur there and how often --
@@ -15,8 +15,8 @@
 #' that site, or a change at a site that never varies, is suspicious).
 #'
 #' Building the profile from the bundled alignment is very fast (seconds). But, if you
-#' are screening many sequences, consider building it once and passing it to \code{lineage_qc} or
-#' \code{amplicon_qc} through their \code{site_profile} argument.
+#' are screening many sequences, consider building it once and passing it to \code{lineage_qc}
+#' through its \code{site_profile} argument.
 #'
 #' @param reference A reference alignment: a \code{DNAbin} alignment (e.g. from
 #'   \code{\link{extract_alignment}}) or a named character vector of equal-length
@@ -60,7 +60,7 @@
 #'     \item{\code{entropy}}{Shannon entropy of the observed bases; 0 at an
 #'       invariant site, higher at variable ones.}
 #'   }
-#' @seealso \code{\link{lineage_qc}}, \code{\link{amplicon_qc}}
+#' @seealso \code{\link{lineage_qc}}
 #' @examples
 #' profile <- build_malavi_site_profile()
 #' head(profile)
@@ -163,7 +163,7 @@ build_malavi_site_profile <- function(reference = NULL, version = "latest",
 #'   }
 #'   With \code{details = TRUE} the list also holds \code{translation},
 #'   \code{site_profile_score}, and \code{chimera}.
-#' @seealso \code{\link{amplicon_qc}}, \code{\link{lineage_screen}},
+#' @seealso \code{\link{lineage_screen}},
 #'   \code{\link{build_malavi_site_profile}}, \code{\link{blast_malavi}}
 #' @examples
 #' ## screen a known lineage against the bundled alignment (expect a clean pass)
@@ -200,7 +200,7 @@ lineage_qc <- function(query, reference = NULL, site_profile = NULL,
 }
 
 ## Core lineage QC, working from a pre-built coded reference and site profile so
-## amplicon_qc() can call it per variant without re-coding the reference.
+## downstream callers can run it per variant without re-coding the reference.
 ## `settings` is the merged list from .lineage_qc_settings(). All arguments are
 ## already validated/prepared by the callers.
 .lineage_qc_core <- function(query, charmat, refcode, ref_names, site_profile,

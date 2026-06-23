@@ -59,8 +59,8 @@ A \code{data.frame} with one row per alignment position (one row per
   }
 }
 \description{
-\strong{Experimental.} A helper used by \code{\link{lineage_qc}} and
-\code{\link{amplicon_qc}}. In an aligned set of sequences, every column (a
+\strong{Experimental.} A helper used by \code{\link{lineage_qc}}. In an
+aligned set of sequences, every column (a
 "site", i.e. one position along the 479 bp barcode) lines up the same base
 across all lineages. This function walks the alignment column by column and
 records, for each site, which DNA bases (A/C/G/T) occur there and how often --
@@ -71,13 +71,13 @@ that site, or a change at a site that never varies, is suspicious).
 }
 \details{
 Building the profile from the bundled alignment is very fast (seconds). But, if you
-are screening many sequences, consider building it once and passing it to \code{lineage_qc} or
-\code{amplicon_qc} through their \code{site_profile} argument.
+are screening many sequences, consider building it once and passing it to \code{lineage_qc}
+through its \code{site_profile} argument.
 }
 \examples{
 profile <- build_malavi_site_profile()
 head(profile)
 }
 \seealso{
-\code{\link{lineage_qc}}, \code{\link{amplicon_qc}}
+\code{\link{lineage_qc}}
 }

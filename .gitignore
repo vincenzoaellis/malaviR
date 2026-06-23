@@ -8,3 +8,6 @@ MalAviBLAST/
 CLAUDE.md
 /doc/
 /Meta/
+
+# local secret — GitHub token, never commit
+github_token_*.txt

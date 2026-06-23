@@ -47,7 +47,7 @@ A character vector the same length as \code{seqs}: each clean ASV
 \description{
 Pads fully primer-trimmed amplicon sequence variants (ASVs) into the MalAvi
 reference frame (479 bp for the bundled data) expected by
-\code{\link{amplicon_qc}} / \code{\link{lineage_qc}}. The MalAvi cyt \emph{b}
+\code{\link{lineage_qc}}. The MalAvi cyt \emph{b}
 barcode frame is the same length for all haemosporidian genera, but different
 primer pairs bracket different sub-windows of it, so a clean primer-trimmed
 ASV is \strong{not} the same length for every assay. This function is
@@ -58,7 +58,7 @@ cyt \emph{b} primer set, not just the two built in.
 The covered window is given as 1-based inclusive positions in the reference
 frame (\code{frame_start}, \code{frame_end}); everything outside it falls
 under a primer footprint and is padded with \code{pad_char} (\code{"N"} by
-default), which \code{amplicon_qc()} and \code{lineage_qc()} treat as missing.
+default), which \code{lineage_qc()} treats as missing.
 Bases under the primer footprint come from the primer, not the template, and
 so are genuinely unobservable from these amplicons; representing them as
 \code{N} is the honest placement (do not retain the primer bases).
@@ -96,6 +96,6 @@ asv456 <- paste(rep("C", 456), collapse = "")
 frame_to_malavi(asv456, frame_start = 24, frame_end = 479)
 }
 \seealso{
-\code{\link{amplicon_qc}}, \code{\link{lineage_qc}},
+\code{\link{lineage_qc}},
   \code{\link{blast_malavi}}
 }

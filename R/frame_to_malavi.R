@@ -2,7 +2,7 @@
 #'
 #' Pads fully primer-trimmed amplicon sequence variants (ASVs) into the MalAvi
 #' reference frame (479 bp for the bundled data) expected by
-#' \code{\link{amplicon_qc}} / \code{\link{lineage_qc}}. The MalAvi cyt \emph{b}
+#' \code{\link{lineage_qc}}. The MalAvi cyt \emph{b}
 #' barcode frame is the same length for all haemosporidian genera, but different
 #' primer pairs bracket different sub-windows of it, so a clean primer-trimmed
 #' ASV is \strong{not} the same length for every assay. This function is
@@ -12,7 +12,7 @@
 #' The covered window is given as 1-based inclusive positions in the reference
 #' frame (\code{frame_start}, \code{frame_end}); everything outside it falls
 #' under a primer footprint and is padded with \code{pad_char} (\code{"N"} by
-#' default), which \code{amplicon_qc()} and \code{lineage_qc()} treat as missing.
+#' default), which \code{lineage_qc()} treats as missing.
 #' Bases under the primer footprint come from the primer, not the template, and
 #' so are genuinely unobservable from these amplicons; representing them as
 #' \code{N} is the honest placement (do not retain the primer bases).
@@ -60,7 +60,7 @@
 #'   padded to \code{reference_length} bp, off-length ASVs handled per
 #'   \code{on_off_length}. Off-length ASVs trigger a warning (or error) giving
 #'   their count and the expected clean length.
-#' @seealso \code{\link{amplicon_qc}}, \code{\link{lineage_qc}},
+#' @seealso \code{\link{lineage_qc}},
 #'   \code{\link{blast_malavi}}
 #' @examples
 #' ## built-in leuc assay (clean ASV 476 bp) -> 479 bp frame

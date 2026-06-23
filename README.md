@@ -21,7 +21,7 @@ database of avian haemosporidian (malaria and related) parasite mtDNA cytochrome
 remotes::install_github("vincenzoaellis/malaviR")
 ```
 
-The core data functions need only CRAN packages. Two optional features need extra
+The core functions need only CRAN packages. Two optional features need extra
 packages:
 
 ```r
@@ -32,12 +32,12 @@ BiocManager::install(c("DECIPHER", "Biostrings"))
 
 ## What's in the package
 
-The bundled database is identified by its release date (e.g. the most recent one as of the update of this package is `2026-03-23`).
+The MalAvi database is identified by its release date (e.g. the most recent one as of the update of this package is `2026-03-23`).
 
 ```r
 library(malaviR)
 
-malavi_version()        # release date of the bundled MalAvi database that the package is currently using
+malavi_version()        # release date of the MalAvi database that the package is currently using
 malavi_version("all")   # all bundled releases...I will keep some older versions of the database here and this is how you can see them
 ```
 
@@ -45,7 +45,7 @@ malavi_version("all")   # all bundled releases...I will keep some older versions
 
 ```r
 hosts_dat <- extract_table("Hosts and Sites Table")   # one of the five MalAvi tables you can access
-aln   <- extract_alignment()                       # the cyt b alignment (it's stored as a DNAbin object)
+aln   <- extract_alignment()                       # the cyt b alignment (it's stored as a DNAbin object...it's just one alignment, no more long vs. all seqs. But also see the sections on synonymies and ambiguous pairs below for some new controls for filtering the alignment)
 plas  <- extract_alignment(genus = "Plasmodium")   # you can filter the alignment by parasite genus
 ```
 
@@ -55,41 +55,33 @@ plas  <- extract_alignment(genus = "Plasmodium")   # you can filter the alignmen
 using a pre-built [DECIPHER](https://decipher.codes/) index (Requires DECIPHER >= v3.0 and Biostrings.)
 
 ```r
-query <- gsub("-", "", paste(as.character(aln[1, ]), collapse = "")) # here we just select the first sequence in the MalAvi alignment to BLAST, but this is designed for you putting in your own sequences as a character string.
+query <- gsub("-", "", paste(as.character(aln[1, ]), collapse = "")) # here we just select the first sequence in the MalAvi alignment, but this is designed thinking about unique sequences as character strings.
 blast_malavi(query, top_n = 5) # here's your BLAST-like output
 ```
 
-### Lineage and amplicon quality control checks
+### Lineage quality control check
 
-These are new functions that I'm still trying to get right. Please treat them as **experimental**.
+This is a new function that I'm still trying to get right. Please treat it as **experimental**.
 
-`lineage_qc()` is a check of whether a MalAvi cyt b sequence (like one you get out of a Sanger sequence or elsewhere) looks plausible or not based on the larger database. It works by flagging strange or surprising features about a sequence including length (too short), gaps/ambiguities, stop codons (translated in frame under the protozoan mitochondrial
+`lineage_qc()` is a check of whether a MalAvi cyt b sequence (like one you get out of a Sanger sequence or elsewhere) looks plausible or not based on the larger database. It works by flagging strange or surprising features about a sequence including length (we expect 479bp), gaps/ambiguities, stop codons (translated in frame under the protozoan mitochondrial
 genetic code...code 4), distance to the nearest lineage in the MalAvi alignment, mutations at invariant or rarely varying
-sites (it checks across the full MalAvi alignment), nonsynonymous/second-position/transversion changes,
-and a sliding-window chimera checker (basically checking if part of the sequence matches one MalAvi lineage and another part matches a different sequence...could be indicative of a sequence chimera). Then it computes a rather arbitrary
-`score` from 0 (suspicious) to 1 (expected based on the MalAvi alignment). This is creating flags or warnings for you to investigate, not telling you your sequence is necessarily wrong. `amplicon_qc()` is meant for working with cleaned amplicon sequence variants (ASVs) that you would get from sequencing the MalAvi region with short-read deep sequencing (2 x 300bp). After you go through a normal pipeline like dada2 or vsearch, my experience is that you will still have many ASVs and it's hard to know what's real. This will flag relatively rare ASVs and any that are genetically close (e.g., 1 bp different) from a very common ASV in the pool.
+sites, nonsynonymous/second-position/transversion changes,
+and a sliding-window chimera checker (basically checking if part of the sequence matches one MalAvi lineage and another part matches a different sequence). Then it computes a `score` from 0 (suspicious) to 1 (expected based on the MalAvi alignment) and provides warnings. This is supposed to encourage further investigation, but it doesn't tell you whether a sequence is necessarily wrong. (Working with denoised amplicon sequence variants [ASVs] from short-read deep sequencing of the MalAvi region — quantifying lineages per sample, reconciling mixed infections, and flagging the rare 1-bp error variants of an abundant ASV — is handled by the companion **malaviASV** package [in development], which builds on `lineage_qc()`.)
 
 ```r
-seq <- paste(as.character(aln[1, ]), collapse = "")   # your own sequence here (should be aligned to MalAvi already)...this just grabs one of the existing MalAvi lineages
+seq <- paste(as.character(aln[1, ]), collapse = "")   # your own sequence here (should be aligned to MalAvi already)
 lineage_qc(seq)                                       # see the report and investigate any flags
-
-variants <- data.frame(sequence = c(seq_a, seq_b), count = c(10000, 5)) # the sequences need to be real and 479bp length aligned to MalAvi...what you'd get out of your amplicon seq project
-amplicon_qc(variants)                                 # check out the report...see if there are any suspicious ASVs in there that you will consider not analyzing further (there will be)
 ```
 
 ### Screening the whole database (studies vs. non-synonymous mutations)
 
 Staffan Bensch pointed out to me that lineages reported by only a single
-study may be more likely to carry non-synonymous changes in *cytb* than lineages found by
+study may be more likely to carry non-synonymous changes in cytb than lineages found by
 multiple studies. That pattern would be consistent with some single-study lineages being
 sequencing errors. Two functions help you investigate this.
 
 `lineage_studies()` counts how many distinct studies report each lineage (from the references
-in the Hosts and Sites table — basically just a simple helper). `lineage_screen()` counts each
-lineage's **singleton** substitutions: bases that the lineage *alone* carries at a well-covered
-site, classified as synonymous, non-synonymous, or stop-codon-creating. A lineage reported by a
-single study that *also* carries singleton non-synonymous changes is the kind of thing I'd be
-wary of.
+in the Hosts and Sites table; I know that's easy to do yourself, but it can be nice to have the helper, also it reminds you to do it). `lineage_screen()` counts each lineage's **singleton** substitutions: bases that the lineage *alone* carries, classified as synonymous, non-synonymous, or stop-codon-creating. A lineage reported by a single study that *also* carries singleton non-synonymous changes is the pattern Staffan was referring to.
 
 ```r
 library(dplyr)
@@ -132,7 +124,7 @@ aln <- extract_alignment(genus = "Plasmodium")
 rownames(aln) <- clean_names(rownames(aln))                 
 
 d <- dist.dna(aln, model = "raw", pairwise.deletion = TRUE, as.matrix = TRUE)
-near_sgs1 <- names(which(d["SGS1", ] <= 3 / 479))           # SGS1 + lineages within 3 bp of it
+near_sgs1 <- names(which(d["SGS1", ] <= 3 / 479))  # SGS1 + lineages within 3 bp of it
 
 lineage_screen() %>%
   filter(in_hosts_table, lineage %in% near_sgs1) %>%
@@ -150,11 +142,40 @@ lineage names. This can inflate estimates of parasite lineage diversity as point
 ([Tamayo-Quintero et al. 2025](https://doi.org/10.1371/journal.ppat.1012911)).
 `synonymy_report()` quantifies the problem and identifies the overlapping lineages ("synonymies");
 `clean_alignment()` produces a de-duplicated alignment, letting you choose which
-name to keep (this function was present already in the old `malaviR`, but it has been rewritten). By default `clean_alignment()` keeps the most complete sequence (i.e., the longest ignoring Ns) in each group (`method = "overlap"`), but you can also choose which of the sequences in the overlap groups you want to keep (`keep = `). In the old version, you could randomly select from the overlapping haplotypes. That's probably not very useful, but in case you are nostalgic about it, I've included a random selector in the new version (`select = "random"`). See `?clean_alignment` for more details.
+name to keep (this function was present already in the old `malaviR`, but it has been rewritten). By default `clean_alignment()` keeps the most complete sequence (i.e., the longest ignoring Ns) in each group (`method = "overlap"`), but you can also choose which of the sequences in the overlap groups you want to keep (`keep = `). In the old version, you could randomly select from the overlapping haplotypes. That's probably not very useful, but in case you want it, I've included a random selector in the new version (`select = "random"`). See `?clean_alignment` for more details.
 
 ```r
-synonymy_report()$summary             # how many names share a haplotype (i.e., shorter sequences that match longer sequences completely)
-res <- clean_alignment(aln, method = "overlap")   # keeps most complete (i.e., longest) lineage per haplotype group (synonymy group)
+synonymy_report()$summary # how many names share a haplotype (i.e., shorter sequences that match longer sequences completely)
+res <- clean_alignment(aln, method = "overlap") # keeps most complete (i.e., longest) lineage per haplotype group (synonymy group)
+```
+
+Collapsing assumes that the shorter sequence matches the longer one at the positions at which its undefined (N or gap). That could be true, but of course we don't know for sure. Good to keep that in mind.
+
+### Ambiguous pairs (a different problem from synonymies)
+
+A **synonymy** (above) is one lineage *contained in* another: wherever the shorter one has a base, the longer one agrees, and the longer one fills in the rest. Keeping the most complete sequence means you are not throwing out any observed nucleotides. So for building an alignment, or for assigning a lineage name to a sequence, collapsing the synonymies and choosing the longer one seems reasonable.
+
+An **ambiguous pair** also agrees wherever both lineages are determined, but here *each* lineage has a base where the *other* has an N or a gap. Neither is contained in the other, so there is no most-complete sequence to keep, and dropping either would discard a nucleotide from the overall dataset. An example should help:
+
+```
+SYNONYMY (containment) — synonymy_report() flags it, consider collapsing the lineages by selecting one (probably the longer one)
+                                          alignment position 336
+  P_SEIAUR01… (479/479 nucleotides known)         T        <- determined at pos 336
+  P_CARCAR11  (478/479 nucleotides known)         N        <- undetermined at same position
+  
+  So, CARCAR11 is contained in SEIAUR01; it carries no base SEIAUR01 lacks.
+
+AMBIGUOUS PAIR (mutually partial) — ambiguous_pairs() flags it
+                                   pos 1     pos 404
+  H_DENPEN02                         G         N      <- determined at 1, undetermined at 404
+  H_PASILI01                         -         G      <- undetermined at 1, determined at 404
+  
+  So, each is determined where the other is not and neither contains the other.
+```
+
+```r
+ambiguous_pairs()$summary      
+head(ambiguous_pairs()$pairs)   # the pairs
 ```
 
 ### Host taxonomy
