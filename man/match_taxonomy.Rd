@@ -29,7 +29,8 @@ A list with two data frames:
       \code{order}, \code{family}, and \code{match_type} (one of
       \code{"manual"}, \code{"exact"}, \code{"synonym:IOC"},
       \code{"synonym:BirdLife"}, \code{"synonym:HowardMoore"},
-      \code{"reassigned:family"}, \code{"reassigned:order"}, \code{"legacy"},
+      \code{"reassigned:genus"}, \code{"reassigned:family"},
+      \code{"reassigned:order"}, \code{"legacy"},
       \code{"generic"}, or \code{"none"}).}
     \item{\code{differences}}{the subset of \code{key} that did not match an
       eBird name exactly (manual overrides, synonyms, reassignments, legacy
@@ -52,16 +53,23 @@ hand-resolved to a current eBird species; these are flagged
 \code{match_type = "manual"}. Remaining names are matched against the eBird
 scientific names, and, failing that, against the IOC, BirdLife, and Howard &
 Moore synonyms carried by clootl (which are then resolved back to the eBird
-name). Many MalAvi host names are
+name). Because the same synonym string is occasionally shared by more than one
+eBird species, an ambiguous synonym is accepted only for the candidate whose
+own epithet agrees with the host's, never by silently taking the first.
+Many MalAvi host names are
 older binomials that no longer match any of those because the genus has since
 been split or the specific epithet re-gendered (e.g. \emph{Anas clypeata} is
 now \emph{Spatula clypeata}; \emph{Basileuterus basilicus} is now
-\emph{Myiothlypis basilica}). To recover these, a final step matches the
-specific epithet -- allowing for Latin gender agreement -- within the host's
+\emph{Myiothlypis basilica}). To recover these, the specific epithet is
+matched -- allowing for Latin gender agreement -- first within the same genus
+(e.g. \emph{Saxicola maura} to \emph{Saxicola maurus}), and then, for genuine
+genus transfers, within the host's
 MalAvi family (or, if that family name is not used by clootl, within its
 order), accepting the match only when it points to a single eBird species.
-This resolves most genus reassignments while the family/order constraint
-guards against epithet collisions between unrelated birds; names whose epithet
+The same-genus step is tried first because a fixed genus is the strongest
+identity signal and is not misled by a mislabeled MalAvi family; the
+family/order constraint then
+guards against epithet collisions between unrelated birds. Names whose epithet
 remains ambiguous are left unmatched rather than guessed. As a last step, host
 names still unmatched are looked up in the hand-curated species key from the
 original \code{malaviR} (which mapped many MalAvi names to corrected

@@ -93,3 +93,13 @@ save(taxonomy, file = "data/taxonomy.rda", compress = "xz")
 message("Wrote data/taxonomy.rda (", nrow(taxonomy), " host species)")
 cat("\nmatch_type breakdown:\n")
 print(table(taxonomy$match_type, useNA = "ifany"))
+
+## --- audit: list the lowest-evidence matches for a maintainer to eyeball. The
+## CSV is written next to this script as a local review aid (it is gitignored,
+## not shipped); the same rows are printed below for convenience. ------------
+audit <- malaviR:::.audit_taxonomy(taxonomy)
+utils::write.csv(audit, "data-raw/taxonomy_audit.csv", row.names = FALSE)
+cat("\nAudit: ", nrow(audit), " low-confidence rows to review ",
+    "(weak genus reassignments + legacy bridges) written to ",
+    "data-raw/taxonomy_audit.csv\n", sep = "")
+print(audit, row.names = FALSE)

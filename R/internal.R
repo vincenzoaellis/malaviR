@@ -147,22 +147,70 @@
   )
 }
 
-## Specific epithet of a binomial, and the same with a trailing Latin
-## gender/declension ending removed so masculine/feminine/neuter forms collapse
-## (e.g. aegyptiacus/aegyptiaca -> aegyptiac; kingi/kingii -> king).
+## Genus (first token) and specific epithet (everything after it) of a binomial,
+## plus the epithet with a trailing Latin gender/declension ending removed so
+## masculine/feminine/neuter forms collapse (e.g. aegyptiacus/aegyptiaca ->
+## aegyptiac; kingi/kingii -> king).
+.genus        <- function(x) sub(" .*$", "", x)
 .epithet      <- function(x) sub("^[A-Za-z]+ ", "", x)
 .epithet_stem <- function(e) sub("(us|a|um|is|os|on|ii|i|e)$", "", e)
 
-## Resolve one binomial to an eBird species name, trying exact, then IOC/
-## BirdLife/Howard & Moore synonyms, then the family/order-constrained epithet
-## match. Returns list(ebird, type); ebird is NA if nothing resolves.
-.resolve_name <- function(name, family, order, ref) {
-  if (name %in% ref$SCI_NAME) return(list(ebird = name, type = "exact"))
+## Match a host name against one of clootl's alternate-authority synonym columns
+## (IOC, then BirdLife, then Howard & Moore). The same synonym string can sit on
+## more than one eBird species (e.g. Howard & Moore "Trochalopteron cachinnans"
+## is carried by both Montecincla cachinnans and M. jerdoni). A plain match()
+## would silently take whichever row comes first, so when a synonym is ambiguous
+## we keep only the candidate whose own epithet agrees (allowing Latin gender)
+## with the host's epithet; if that still does not single one out, we decline the
+## match rather than guess. Returns list(ebird, type); ebird is NA if nothing
+## resolves.
+.syn_resolve <- function(name, ref) {
+  s   <- .epithet_stem(.epithet(name))
   syn <- c(IOC = "IOC_name", BirdLife = "Birdlife_name", HowardMoore = "H_M_name")
   for (label in names(syn)) {
-    i <- match(name, ref[[syn[label]]])
-    if (!is.na(i)) return(list(ebird = ref$SCI_NAME[i], type = paste0("synonym:", label)))
+    rows <- which(ref[[syn[label]]] == name)
+    if (length(rows) == 0) next
+    cand <- unique(ref$SCI_NAME[rows])
+    if (length(cand) > 1) {                       # ambiguous synonym: prefer epithet agreement
+      cand <- unique(cand[.epithet_stem(.epithet(cand)) == s])
+    }
+    if (length(cand) == 1)
+      return(list(ebird = cand, type = paste0("synonym:", label)))
   }
+  list(ebird = NA_character_, type = NA_character_)
+}
+
+## Recover a species whose genus name is unchanged but whose epithet has shifted
+## (usually Latin gender agreement, e.g. Saxicola maura -> Saxicola maurus). We
+## search the whole taxonomy for the same genus, taking an exact-epithet hit
+## first and a gender-relaxed one otherwise, and accept it only when it resolves
+## to a single eBird species. Keeping the genus fixed makes this the strongest
+## identity signal available, so it is tried before the family/order-constrained
+## search, which can otherwise be misled by a wrong MalAvi family label into a
+## same-epithet match in an unrelated genus. Returns list(ebird, type).
+.same_genus_reassign <- function(name, ref) {
+  g    <- .genus(name)
+  pool <- ref[.genus(ref$SCI_NAME) == g, , drop = FALSE]
+  if (nrow(pool) == 0) return(list(ebird = NA_character_, type = NA_character_))
+  cand <- unique(pool$SCI_NAME[.epithet(pool$SCI_NAME) == .epithet(name)])        # exact epithet
+  if (length(cand) != 1)
+    cand <- unique(pool$SCI_NAME[.epithet_stem(.epithet(pool$SCI_NAME)) ==
+                                   .epithet_stem(.epithet(name))])                # gender-relaxed
+  if (length(cand) == 1)
+    return(list(ebird = cand, type = "reassigned:genus"))
+  list(ebird = NA_character_, type = NA_character_)
+}
+
+## Resolve one binomial to an eBird species name, trying exact, then the
+## (ambiguity-aware) IOC/BirdLife/Howard & Moore synonyms, then a same-genus
+## epithet shift, then the family/order-constrained epithet match. Returns
+## list(ebird, type); ebird is NA if nothing resolves.
+.resolve_name <- function(name, family, order, ref) {
+  if (name %in% ref$SCI_NAME) return(list(ebird = name, type = "exact"))
+  syn <- .syn_resolve(name, ref)
+  if (!is.na(syn$ebird)) return(syn)
+  sg <- .same_genus_reassign(name, ref)
+  if (!is.na(sg$ebird)) return(sg)
   .epithet_reassign(name, family, order, ref)
 }
 
@@ -187,6 +235,42 @@
   if (length(cand) == 1)
     return(list(ebird = cand, type = paste0("reassigned:", level)))
   list(ebird = NA_character_, type = NA_character_)
+}
+
+## Flag the crosswalk rows that rest on the weakest evidence, so a maintainer can
+## eyeball them after every rebuild (called from build_taxonomy.R). These are the
+## matches with the least independent support, and the only place the Oriolus
+## brachyrhynchus -> Corvus brachyrhynchos style collision can hide:
+##   - "weak_reassignment": a family/order-pool epithet match that *changed the
+##     genus* and only agreed after Latin gender relaxation (not an exact
+##     epithet). A wrong MalAvi family label can drive a coincidental stem into
+##     an unrelated genus here. (Exact-epithet genus transfers, same-genus shifts,
+##     and synonym matches all carry stronger support and are not flagged.)
+##   - "legacy": resolved only through the decades-old original malaviR hand key,
+##     which predates the current eBird taxonomy and is worth re-checking.
+## Manual overrides are excluded -- a human already decided those. NOTE this is a
+## review aid, not a correctness test: the great majority of flagged rows are
+## legitimate (e.g. Carduelis -> Spinus gender agreement); the point is that the
+## genuinely wrong ones, when they occur, will be somewhere in this short list.
+## Returns a data frame of the rows to review; empty if none.
+.audit_taxonomy <- function(key) {
+  genus_changed <- .genus(key$malavi_species) != .genus(key$ebird_species)
+  epithet_exact <- .epithet(key$malavi_species) == .epithet(key$ebird_species)
+
+  weak <- key$match_type %in% c("reassigned:family", "reassigned:order") &
+    genus_changed & !epithet_exact & !is.na(key$ebird_species)
+  legacy <- key$match_type == "legacy"
+
+  flag   <- weak | legacy
+  reason <- ifelse(legacy[flag], "legacy", "weak_reassignment")
+  out <- data.frame(
+    malavi_species = key$malavi_species[flag],
+    ebird_species  = key$ebird_species[flag],
+    match_type     = key$match_type[flag],
+    reason         = reason,
+    stringsAsFactors = FALSE
+  )
+  out[order(out$reason, out$malavi_species), , drop = FALSE]
 }
 
 ## Build the synonymy table (groups with >1 lineage) and pick which to keep.

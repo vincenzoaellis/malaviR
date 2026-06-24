@@ -13,16 +13,23 @@
 #' \code{match_type = "manual"}. Remaining names are matched against the eBird
 #' scientific names, and, failing that, against the IOC, BirdLife, and Howard &
 #' Moore synonyms carried by clootl (which are then resolved back to the eBird
-#' name). Many MalAvi host names are
+#' name). Because the same synonym string is occasionally shared by more than one
+#' eBird species, an ambiguous synonym is accepted only for the candidate whose
+#' own epithet agrees with the host's, never by silently taking the first.
+#' Many MalAvi host names are
 #' older binomials that no longer match any of those because the genus has since
 #' been split or the specific epithet re-gendered (e.g. \emph{Anas clypeata} is
 #' now \emph{Spatula clypeata}; \emph{Basileuterus basilicus} is now
-#' \emph{Myiothlypis basilica}). To recover these, a final step matches the
-#' specific epithet -- allowing for Latin gender agreement -- within the host's
+#' \emph{Myiothlypis basilica}). To recover these, the specific epithet is
+#' matched -- allowing for Latin gender agreement -- first within the same genus
+#' (e.g. \emph{Saxicola maura} to \emph{Saxicola maurus}), and then, for genuine
+#' genus transfers, within the host's
 #' MalAvi family (or, if that family name is not used by clootl, within its
 #' order), accepting the match only when it points to a single eBird species.
-#' This resolves most genus reassignments while the family/order constraint
-#' guards against epithet collisions between unrelated birds; names whose epithet
+#' The same-genus step is tried first because a fixed genus is the strongest
+#' identity signal and is not misled by a mislabeled MalAvi family; the
+#' family/order constraint then
+#' guards against epithet collisions between unrelated birds. Names whose epithet
 #' remains ambiguous are left unmatched rather than guessed. As a last step, host
 #' names still unmatched are looked up in the hand-curated species key from the
 #' original \code{malaviR} (which mapped many MalAvi names to corrected
@@ -59,7 +66,8 @@
 #'       \code{order}, \code{family}, and \code{match_type} (one of
 #'       \code{"manual"}, \code{"exact"}, \code{"synonym:IOC"},
 #'       \code{"synonym:BirdLife"}, \code{"synonym:HowardMoore"},
-#'       \code{"reassigned:family"}, \code{"reassigned:order"}, \code{"legacy"},
+#'       \code{"reassigned:genus"}, \code{"reassigned:family"},
+#'       \code{"reassigned:order"}, \code{"legacy"},
 #'       \code{"generic"}, or \code{"none"}).}
 #'     \item{\code{differences}}{the subset of \code{key} that did not match an
 #'       eBird name exactly (manual overrides, synonyms, reassignments, legacy
@@ -129,21 +137,33 @@ match_taxonomy <- function(species = NULL, version = "latest",
   ebird[fill]      <- ref$SCI_NAME[hit[fill]]
   match_type[fill] <- "exact"
 
-  ## 3. fall back to IOC / BirdLife / Howard & Moore synonyms, resolved to eBird name
-  syn_sources <- c(IOC = "IOC_name", BirdLife = "Birdlife_name", HowardMoore = "H_M_name")
-  for (label in names(syn_sources)) {
-    todo <- which(is.na(ebird) & !generic)
-    if (length(todo) == 0) break
-    idx <- match(species[todo], ref[[syn_sources[label]]])
-    got <- which(!is.na(idx))
-    if (length(got) > 0) {
-      pos <- todo[got]
-      ebird[pos]      <- ref$SCI_NAME[idx[got]]
-      match_type[pos] <- paste0("synonym:", label)
+  ## 3. fall back to IOC / BirdLife / Howard & Moore synonyms, resolved to eBird
+  ##    name. .syn_resolve() is ambiguity-aware: when the same synonym string is
+  ##    carried by more than one eBird species it keeps only the one whose epithet
+  ##    agrees, rather than silently taking the first row.
+  todo <- which(is.na(ebird) & !generic)
+  for (i in todo) {
+    res <- .syn_resolve(species[i], ref)
+    if (!is.na(res$ebird)) {
+      ebird[i]      <- res$ebird
+      match_type[i] <- res$type
     }
   }
 
-  ## 4. family/order-constrained epithet match (recovers genus reassignments and
+  ## 4. same-genus epithet shift (genus unchanged, epithet re-gendered, e.g.
+  ##    Saxicola maura -> Saxicola maurus). Tried before the family/order step
+  ##    because a fixed genus is the strongest identity signal and is not fooled
+  ##    by a wrong MalAvi family label.
+  todo <- which(is.na(ebird) & !generic)
+  for (i in todo) {
+    res <- .same_genus_reassign(species[i], ref)
+    if (!is.na(res$ebird)) {
+      ebird[i]      <- res$ebird
+      match_type[i] <- res$type
+    }
+  }
+
+  ## 5. family/order-constrained epithet match (recovers genus reassignments and
   ##    gender-agreement changes); only accepted when it resolves to one species
   todo <- which(is.na(ebird) & !generic)
   for (i in todo) {
@@ -154,7 +174,7 @@ match_taxonomy <- function(species = NULL, version = "latest",
     }
   }
 
-  ## 5. legacy bridge: the original malaviR hand-curated key maps some MalAvi
+  ## 6. legacy bridge: the original malaviR hand-curated key maps some MalAvi
   ##    host names to a corrected binomial; re-resolve that to the eBird name
   todo <- which(is.na(ebird) & !generic)
   for (i in todo) {

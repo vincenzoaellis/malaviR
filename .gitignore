@@ -11,3 +11,7 @@ CLAUDE.md
 
 # local secret — GitHub token, never commit
 github_token_*.txt
+
+# local-only review notes — keep off GitHub (provenance kept locally)
+data-raw/copilot_taxonomy_review_*.md
+data-raw/taxonomy_audit.csv
