@@ -39,6 +39,14 @@ blank cells in a way that made them read back as the literal string
 \code{"LINEAGE_NAME"} (mostly in \code{grand_lineage_summary}, and a few in
 \code{vector_data}). These have been reset to \code{NA} when building the
 bundled data; all other values are verbatim from MalAvi.
+
+The returned tables also have their character columns whitespace-tidied: any
+run of whitespace (including stray line breaks and tabs that the source
+spreadsheets embed in free-text fields such as \code{SPECIES_NAME} or
+\code{COMMENT}) is collapsed to a single space and the ends are trimmed. This
+only repairs formatting -- it never changes a value's identity -- but it keeps
+e.g. host-name joins and distinct-species counts from being broken by an
+invisible trailing newline. \code{NA} values are preserved.
 }
 \examples{
 hosts <- extract_table("Hosts and Sites Table")

@@ -33,6 +33,24 @@
   readRDS(.malavi_file(version, prefix))
 }
 
+## Tidy the whitespace of every character column of a MalAvi table: collapse any
+## run of whitespace -- including the stray line breaks and tabs the source
+## spreadsheets embed in free-text fields (e.g. SPECIES_NAME "Setophaga citrina\n",
+## COMMENT, SITE_NAME) -- to a single space, and trim the ends. Left uncleaned,
+## such embedded newlines (a) break exact joins on host names (e.g. against the
+## `taxonomy` dataset) even though the species is present, and (b) split one value
+## into several distinct strings, which silently inflates counts of distinct hosts.
+## Only formatting is altered; a value's identity is never changed and NA is
+## preserved (gsub()/trimws() return NA for NA input). Non-character columns are
+## left untouched.
+.clean_table_ws <- function(df) {
+  char_cols <- which(vapply(df, is.character, logical(1)))
+  for (j in char_cols) {
+    df[[j]] <- trimws(gsub("[[:space:]]+", " ", df[[j]]))
+  }
+  df
+}
+
 ## ---------------------------------------------------------------------------
 ## Haplotype grouping, shared by clean_alignment() and synonymy_report().
 ##

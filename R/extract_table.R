@@ -21,6 +21,14 @@
 #' \code{vector_data}). These have been reset to \code{NA} when building the
 #' bundled data; all other values are verbatim from MalAvi.
 #'
+#' The returned tables also have their character columns whitespace-tidied: any
+#' run of whitespace (including stray line breaks and tabs that the source
+#' spreadsheets embed in free-text fields such as \code{SPECIES_NAME} or
+#' \code{COMMENT}) is collapsed to a single space and the ends are trimmed. This
+#' only repairs formatting -- it never changes a value's identity -- but it keeps
+#' e.g. host-name joins and distinct-species counts from being broken by an
+#' invisible trailing newline. \code{NA} values are preserved.
+#'
 #' @param table Name of the table to return (see Details), or \code{"all"} to
 #'   return a named list of all five tables. Defaults to \code{"Hosts and Sites Table"}.
 #' @param version MalAvi release to read, as a date string (e.g.
@@ -59,8 +67,9 @@ extract_table <- function(table = "Hosts and Sites Table", version = "latest") {
   db <- .malavi_load(version, "malavi_db_")
 
   if (table == "all") {
-    return(db[c("hosts_and_sites", "grand_lineage_summary", "morpho_species",
-                "references", "vector_data")])
+    tabs <- db[c("hosts_and_sites", "grand_lineage_summary", "morpho_species",
+                 "references", "vector_data")]
+    return(lapply(tabs, .clean_table_ws))
   }
-  db[[lookup[[table]]]]
+  .clean_table_ws(db[[lookup[[table]]]])
 }
