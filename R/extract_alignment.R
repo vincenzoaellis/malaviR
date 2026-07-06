@@ -29,8 +29,11 @@ extract_alignment <- function(version = "latest",
                                         "Leucocytozoon", "other")) {
   genus <- match.arg(genus, several.ok = TRUE)
   alignment <- .malavi_load(version, "malavi_db_")$alignment
+  mv <- .malavi_resolve_version(version)
 
-  if ("all" %in% genus) return(alignment)
+  if ("all" %in% genus) {
+    return(.malavi_attach_meta(alignment, malavi_version = mv, genus = "all"))
+  }
 
   ## map each lineage's name prefix to a genus
   prefix <- substr(rownames(alignment), 1, 2)
@@ -41,5 +44,6 @@ extract_alignment <- function(version = "latest",
   keep <- lineage_genus %in% genus
   if (!any(keep)) stop("No lineages match genus: ", paste(genus, collapse = ", "),
                        call. = FALSE)
-  alignment[keep, ]
+  .malavi_attach_meta(alignment[keep, ], malavi_version = mv,
+                      genus = paste(genus, collapse = ","))
 }

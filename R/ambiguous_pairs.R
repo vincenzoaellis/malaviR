@@ -34,6 +34,13 @@
 #' here; that is a genuine distinct lineage, to be resolved by other evidence
 #' (e.g. within-sample read abundance), not by ambiguity.
 #'
+#' Because neither member of an ambiguous pair contains the other, these pairs
+#' should generally be \strong{reviewed by hand}, not collapsed automatically: the
+#' two names may denote one haplotype or two, and the reference sequences alone
+#' cannot decide. This is the opposite recommendation to a synonymy (see
+#' \code{\link{synonymy_report}}), where keeping the more complete sequence
+#' discards no observed base.
+#'
 #' Only pairs in which \emph{both} members carry ambiguity can qualify: if either
 #' sequence is fully determined it cannot have a position for the other to be
 #' privately determined at, so any distance-0 relationship to it is a containment
@@ -82,6 +89,8 @@ ambiguous_pairs <- function(alignment = NULL, version = "latest",
     stop("The alignment must have lineage names (row names).", call. = FALSE)
   }
   min_comparable <- as.integer(min_comparable)
+  ## MalAvi version is only meaningful when the bundled alignment was used
+  mv <- if (is.null(alignment)) .malavi_resolve_version(version) else NA_character_
 
   ## integer-code: A/C/G/T -> 1:4, everything else (N, other IUPAC codes, gaps)
   ## -> 0, i.e. "not a determined base"
@@ -107,7 +116,7 @@ ambiguous_pairs <- function(alignment = NULL, version = "latest",
   ## fewer than two partial sequences => no pair is possible
   if (n_partial < 2L) {
     return(.ambiguous_pairs_result(empty_pairs, n_sequences, n_partial,
-                                   min_comparable))
+                                   min_comparable, mv))
   }
 
   ## ---- vectorized pairwise computation, partial sequences only ----
@@ -149,7 +158,7 @@ ambiguous_pairs <- function(alignment = NULL, version = "latest",
 
   if (length(hits) == 0L) {
     return(.ambiguous_pairs_result(empty_pairs, n_sequences, n_partial,
-                                   min_comparable))
+                                   min_comparable, mv))
   }
 
   rc <- arrayInd(hits, c(n_partial, n_partial))   # row/col index of each hit
@@ -174,12 +183,12 @@ ambiguous_pairs <- function(alignment = NULL, version = "latest",
   pairs <- pairs[ord, , drop = FALSE]
   rownames(pairs) <- NULL
 
-  .ambiguous_pairs_result(pairs, n_sequences, n_partial, min_comparable)
+  .ambiguous_pairs_result(pairs, n_sequences, n_partial, min_comparable, mv)
 }
 
 ## Assemble the summary/by_genus/pairs list from a (possibly empty) pairs frame.
 .ambiguous_pairs_result <- function(pairs, n_sequences, n_partial,
-                                    min_comparable) {
+                                    min_comparable, malavi_version = NA_character_) {
   lineages_in_pairs <- unique(c(pairs$lineage_a, pairs$lineage_b))
 
   summary <- data.frame(
@@ -201,7 +210,31 @@ ambiguous_pairs <- function(alignment = NULL, version = "latest",
   by_genus <- as.data.frame(table(genus_combination = combo),
                             responseName = "n_pairs", stringsAsFactors = FALSE)
 
-  list(summary = summary, by_genus = by_genus, pairs = pairs)
+  out <- list(summary = summary, by_genus = by_genus, pairs = pairs)
+  out <- .malavi_attach_meta(out, malavi_version = malavi_version,
+                             method = "pairwise_deletion",
+                             min_comparable = min_comparable)
+  class(out) <- c("malavi_ambiguous_pairs", class(out))
+  out
+}
+
+#' @export
+print.malavi_ambiguous_pairs <- function(x, ...) {
+  s <- x$summary
+  cat("MalAvi ambiguous pairs\n")
+  meta <- .malavi_meta_line(x)
+  if (!is.null(meta)) cat("  ", meta, "\n", sep = "")
+  cat("  sequences:            ", s$n_sequences,
+      "  (", s$n_partial, " partial)\n", sep = "")
+  cat("  ambiguous pairs:      ", s$n_ambiguous_pairs,
+      "  (", s$n_same_genus, " same-genus, ", s$n_cross_genus,
+      " cross-genus)\n", sep = "")
+  cat("  lineages in pairs:    ", s$n_lineages_in_pairs, "\n", sep = "")
+  cat("\nNote: the two members of an ambiguous pair are mutually partial (neither\n",
+      "contains the other). Review these by hand rather than collapsing them.\n",
+      sep = "")
+  cat("\nSee $pairs for the pairs to review.\n")
+  invisible(x)
 }
 
 ## Map a MalAvi lineage name to its parasite genus from the leading prefix, the

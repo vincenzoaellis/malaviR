@@ -61,7 +61,11 @@ under a primer footprint and is padded with \code{pad_char} (\code{"N"} by
 default), which \code{lineage_qc()} treats as missing.
 Bases under the primer footprint come from the primer, not the template, and
 so are genuinely unobservable from these amplicons; representing them as
-\code{N} is the honest placement (do not retain the primer bases).
+\code{N} is the honest placement (do not retain the primer bases). The
+\code{N}s this function introduces therefore mark positions that were
+\strong{not observed} because they fall outside the sequenced assay window --
+they are not biological ambiguity calls, and downstream
+\code{\link{lineage_qc}} treats them as missing (not as mismatches).
 
 Two primer sets are built in as shortcuts (supply \code{primer = }):
 \describe{
@@ -86,10 +90,18 @@ wrong-length sequence into the frame shifts its reading frame and produces
 spurious stop codons in the codon-aware QC.
 }
 \examples{
-## built-in leuc assay (clean ASV 476 bp) -> 479 bp frame
+## built-in haem assay (clean ASV 478 bp) -> 479 bp frame: 1 N on the left,
+## none on the right (covers frame positions 2-479)
+haem_asv <- paste(rep("A", 478), collapse = "")
+framed_h <- frame_to_malavi(haem_asv, primer = "haem")
+nchar(framed_h)          # 479
+substr(framed_h, 1, 3)   # "NAA": the single left-pad N, then template
+
+## built-in leuc assay (clean ASV 476 bp) -> 479 bp frame: 1 N left, 2 N right
 leuc_asv <- paste(rep("A", 476), collapse = "")
 framed <- frame_to_malavi(leuc_asv, primer = "leuc")
 nchar(framed)            # 479
+substr(framed, 478, 479) # "NN": the two right-pad Ns
 
 ## an arbitrary primer set covering frame positions 24-479 (clean ASV 456 bp)
 asv456 <- paste(rep("C", 456), collapse = "")

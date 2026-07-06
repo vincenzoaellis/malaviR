@@ -31,6 +31,15 @@
 #' The \code{informative_length} column (count of A/C/G/T bases) helps flag the
 #' short, partial sequences at the heart of the problem.
 #'
+#' Note on \code{method = "overlap"}: a partial sequence is collapsed into a more
+#' complete one when they are \emph{compatible} at every position where both carry
+#' a definite A/C/G/T base. Positions missing in the partial sequence are treated
+#' as \strong{unknown}, not as evidence of identity, so an overlap group is a group
+#' of sequences \emph{compatible over their observed sites} rather than sequences
+#' proven identical across the unobserved ones. Keeping the most complete member
+#' discards no observed base, but it does assume the shorter sequence would have
+#' matched at the positions it never determined.
+#'
 #' @param alignment A \code{DNAbin} alignment (e.g. from
 #'   \code{\link{extract_alignment}}).
 #' @param method How to define a repeated haplotype: \code{"overlap"} (default)
@@ -86,6 +95,25 @@ clean_alignment <- function(alignment, method = c("overlap", "strict"),
   dropped <- syn$synonymies$lineage[syn$synonymies$status == "dropped"]
   alignment_clean <- alignment[!g$lineages %in% dropped, ]
 
-  list(synonymies = syn$synonymies, kept = syn$kept, dropped = dropped,
-       alignment_clean = alignment_clean)
+  out <- list(synonymies = syn$synonymies, kept = syn$kept, dropped = dropped,
+              alignment_clean = alignment_clean)
+  out <- .malavi_attach_meta(out, method = method, select = select)
+  class(out) <- c("malavi_alignment_clean", class(out))
+  out
+}
+
+#' @export
+print.malavi_alignment_clean <- function(x, ...) {
+  cat("MalAvi cleaned alignment\n")
+  meta <- .malavi_meta_line(x)
+  if (!is.null(meta)) cat("  ", meta, "\n", sep = "")
+  cat("  synonymy groups collapsed: ", length(x$kept), "\n", sep = "")
+  cat("  lineages dropped:          ", length(x$dropped), "\n", sep = "")
+  cat("  sequences in $alignment_clean: ", nrow(x$alignment_clean), "\n", sep = "")
+  if (identical(attr(x, "malavi_meta")$method, "overlap")) {
+    cat("\nNote: overlap groups are compatible over observed A/C/G/T sites;\n",
+        "one representative per group is kept in $alignment_clean.\n", sep = "")
+  }
+  cat("\nSee $synonymies for the per-lineage kept/dropped table.\n")
+  invisible(x)
 }

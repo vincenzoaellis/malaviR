@@ -46,6 +46,19 @@ test_that("on_off_length = 'keep' returns the original off-length sequence", {
   expect_equal(out, clean_seq(400))
 })
 
+test_that("a full-length (479 bp) sequence is treated as off-length, not reframed", {
+  ## conservative behavior: an already-full-length sequence is not forced into
+  ## the frame (it would shift the reading frame); default set_na returns NA
+  expect_warning(out <- frame_to_malavi(clean_seq(479), primer = "haem"))
+  expect_true(is.na(out))
+})
+
+test_that("on_off_length = 'error' stops on an off-length ASV", {
+  expect_error(frame_to_malavi(clean_seq(400), primer = "haem",
+                               on_off_length = "error"),
+               "not the expected clean")
+})
+
 test_that("supplying both primer and an explicit window is an error", {
   expect_error(frame_to_malavi(clean_seq(478), primer = "haem",
                                frame_start = 2, frame_end = 479),

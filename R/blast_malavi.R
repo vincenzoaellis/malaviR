@@ -101,5 +101,6 @@ blast_malavi <- function(sequence, top_n = 5, version = "latest") {
   )
   out <- out[order(out$Score, decreasing = TRUE), ]
   rownames(out) <- NULL
-  out
+  .malavi_attach_meta(out, malavi_version = .malavi_resolve_version(version),
+                      method = "DECIPHER SearchIndex + AlignPairs")
 }

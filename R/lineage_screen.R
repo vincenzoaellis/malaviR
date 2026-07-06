@@ -67,7 +67,8 @@ lineage_studies <- function(version = "latest", references = FALSE) {
     out$references <- vapply(idx, function(i)
       paste(sort(unique(stats::na.omit(ref[i]))), collapse = "; "), character(1))
   }
-  out[order(out$lineage), , drop = FALSE]
+  out <- out[order(out$lineage), , drop = FALSE]
+  .malavi_attach_meta(out, malavi_version = .malavi_resolve_version(version))
 }
 
 #' Screen every MalAvi lineage for study support versus mutation burden
@@ -220,5 +221,8 @@ lineage_screen <- function(version = "latest", reference = NULL,
 
   out <- out[order(out$lineage), , drop = FALSE]
   rownames(out) <- NULL
-  out
+  ## MalAvi version is only meaningful when the bundled alignment was screened
+  mv <- if (is.null(reference)) .malavi_resolve_version(version) else NA_character_
+  .malavi_attach_meta(out, malavi_version = mv, genus = genus,
+                      min_site_coverage = min_site_coverage)
 }

@@ -10,11 +10,14 @@ sister_taxa(tree, node)
 \item{tree}{A phylogeny of class \code{phylo} (see \pkg{ape}).}
 
 \item{node}{An internal node number, or a vector of node numbers. For a vector,
-results for each node are stacked into one data frame.}
+results for each node are stacked into one data frame. Each value must be an
+internal (non-tip) node of \code{tree}; a tip number or an out-of-range value
+is an error.}
 }
 \value{
-A \code{data.frame} with columns \code{ancestral.node},
-  \code{sister.clade} (1 or 2), and \code{taxa} (tip label).
+A \code{data.frame} with columns \code{ancestral.node} (the node
+  supplied), \code{sister.clade} (1 or 2, labelling the node's two immediate
+  descendant clades), and \code{taxa} (tip label). One row per descending tip.
 }
 \description{
 For an internal node, returns the tips descending from each of its two

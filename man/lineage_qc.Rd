@@ -95,8 +95,17 @@ The query must already be aligned to the MalAvi barcode (same length and
 reading frame as the reference). For an unaligned sequence, find its closest
 lineages first with \code{\link{blast_malavi}}. The screen rolls a handful of
 checks into one \code{score} in \code{[0, 1]} (1 = typical of known MalAvi
-diversity, 0 = highly suspicious or invalid). The score is a transparent,
-rule-based heuristic, \strong{not} a calibrated probability.
+diversity, 0 = highly suspicious or invalid).
+
+The \code{score} is an empirical, rule-based plausibility index: known checks
+are turned into penalties with fixed weights and mapped to \code{[0, 1]}. It is
+\strong{not} a calibrated probability that the sequence is correct or
+incorrect, and it has not been validated against a labelled truth set. Use it
+to rank sequences for manual review, not as a pass/fail verdict. The
+translation uses genetic code 4 (protozoan mitochondrial), the correct code
+for avian haemosporidians. The bundled MalAvi version, genetic code, and
+expected length used for a given result are recorded on the returned object
+(\code{attr(x, "malavi_meta")}) and shown when it is printed.
 }
 \section{Flags}{
 

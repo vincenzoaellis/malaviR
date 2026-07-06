@@ -68,6 +68,13 @@ determined in both) has distance \eqn{\ge 1} and is therefore never reported
 here; that is a genuine distinct lineage, to be resolved by other evidence
 (e.g. within-sample read abundance), not by ambiguity.
 
+Because neither member of an ambiguous pair contains the other, these pairs
+should generally be \strong{reviewed by hand}, not collapsed automatically: the
+two names may denote one haplotype or two, and the reference sequences alone
+cannot decide. This is the opposite recommendation to a synonymy (see
+\code{\link{synonymy_report}}), where keeping the more complete sequence
+discards no observed base.
+
 Only pairs in which \emph{both} members carry ambiguity can qualify: if either
 sequence is fully determined it cannot have a position for the other to be
 privately determined at, so any distance-0 relationship to it is a containment

@@ -47,6 +47,15 @@ one), but any alignment and either method may be used.
 This is a reporting companion to \code{\link{clean_alignment}}: use this to see
 the size of the problem and which lineages to check, and \code{clean_alignment}
 to actually produce a de-duplicated alignment.
+
+With \code{method = "overlap"}, a shorter or partial sequence is grouped with a
+longer one when the two are \emph{compatible} at every position where both have
+a definite A/C/G/T base; positions missing in the shorter sequence (gaps or
+\code{N}) are treated as \strong{unknown}, not as evidence that the two agree
+there. The groups are therefore \dQuote{compatible haplotype groups} over the
+observed sites, not proof that the sequences are identical across the
+unobserved positions. \code{method = "strict"} only groups sequences identical
+across the whole alignment.
 }
 \examples{
 rep <- synonymy_report(method = "strict")

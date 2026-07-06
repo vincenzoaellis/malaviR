@@ -65,11 +65,17 @@ extract_table <- function(table = "Hosts and Sites Table", version = "latest") {
   }
 
   db <- .malavi_load(version, "malavi_db_")
+  mv <- .malavi_resolve_version(version)
 
   if (table == "all") {
     tabs <- db[c("hosts_and_sites", "grand_lineage_summary", "morpho_species",
                  "references", "vector_data")]
-    return(lapply(tabs, .clean_table_ws))
+    ## stamp the bundled version onto each table (and the list) as a provenance
+    ## attribute; the descriptive table label is deliberately not stamped so that
+    ## e.g. extract_table("references") == extract_table("Table of References")
+    return(.malavi_attach_meta(lapply(tabs, .malavi_attach_meta,
+                                      malavi_version = mv),
+                               malavi_version = mv))
   }
-  .clean_table_ws(db[[lookup[[table]]]])
+  .malavi_attach_meta(.clean_table_ws(db[[lookup[[table]]]]), malavi_version = mv)
 }

@@ -15,3 +15,6 @@ github_token_*.txt
 # local-only review notes — keep off GitHub (provenance kept locally)
 data-raw/copilot_taxonomy_review_*.md
 data-raw/taxonomy_audit.csv
+
+# local-only code_reporter audit output — private, keep off GitHub
+code_reporter/

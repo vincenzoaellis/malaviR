@@ -8,9 +8,12 @@
 #'
 #' @param tree A phylogeny of class \code{phylo} (see \pkg{ape}).
 #' @param node An internal node number, or a vector of node numbers. For a vector,
-#'   results for each node are stacked into one data frame.
-#' @return A \code{data.frame} with columns \code{ancestral.node},
-#'   \code{sister.clade} (1 or 2), and \code{taxa} (tip label).
+#'   results for each node are stacked into one data frame. Each value must be an
+#'   internal (non-tip) node of \code{tree}; a tip number or an out-of-range value
+#'   is an error.
+#' @return A \code{data.frame} with columns \code{ancestral.node} (the node
+#'   supplied), \code{sister.clade} (1 or 2, labelling the node's two immediate
+#'   descendant clades), and \code{taxa} (tip label). One row per descending tip.
 #' @references
 #' Ellis VA, Bensch S (2018). Host specificity of avian haemosporidian parasites
 #' is unrelated among sister lineages but shows phylogenetic signal across larger
@@ -22,6 +25,25 @@
 #' @importFrom ape extract.clade
 #' @export
 sister_taxa <- function(tree, node){
+  ## --- validate inputs so bad calls fail with a clear message rather than a
+  ## cryptic subscript error deep inside the internal helper ---
+  if (!inherits(tree, "phylo")) {
+    stop("`tree` must be a phylogeny of class 'phylo' (see ape::read.tree).",
+         call. = FALSE)
+  }
+  if (missing(node) || !is.numeric(node) || length(node) < 1L || any(is.na(node))) {
+    stop("`node` must be one or more internal node numbers.", call. = FALSE)
+  }
+  ## internal nodes are exactly the parent nodes in the edge matrix (tips never
+  ## appear in column 1); anything else has no descendant clades to return
+  internal_nodes <- unique(tree$edge[, 1])
+  bad <- setdiff(node, internal_nodes)
+  if (length(bad) > 0) {
+    stop("Not an internal node: ", paste(bad, collapse = ", "),
+         ". Internal nodes of this tree are ", min(internal_nodes), "-",
+         max(internal_nodes), ".", call. = FALSE)
+  }
+
   sister_taxa_internal <- function(tree, node){
     mat.edge <- as.matrix(tree$edge)
     sister.clades <- mat.edge[mat.edge[,1] == node, ]

@@ -195,6 +195,30 @@ data(taxonomy)
 
 `clean_names()` strips the genus prefix from alignment tip labels. This was also in the older version of `malaviR` and can be useful for linking the alignment to the tables (alignment uses the genus prefix, tables do not).
 
+## Important assumptions
+
+A few important points:
+
+- Most sequence functions use the MalAvi database reported by
+  `malavi_version()`. To make that clear, that version (and the method used)
+  is included as an attribute (`attr(x, "malavi_meta")`), so a saved result records how it was made.
+- Pairwise-deletion distances (`pairwise_deletion_distance()`, `lineage_qc()`,
+  `ambiguous_pairs()`) compare only positions where **both** sequences have a
+  defined base (A/C/G/T). Ambiguous bases, `N`s, and gaps are ignored, so a
+  `distance` should always be considered in the context of `n_comparable` bases.
+- `N`s added by `frame_to_malavi()` mark positions that were **not observed**
+  because they fall outside the sequence window; they are not biological
+  ambiguity calls.
+- `synonymy_report(method = "overlap")` and `clean_alignment(method = "overlap")`
+  group sequences that are **compatible over their observed positions**; missing
+  positions are unknown. Don't consider collapsed sequences as necessarily identical (we just don't know).
+- `ambiguous_pairs()` returns mutually partial pairs (neither contains the other...see above).
+  These should be **reviewed**, not necessarily collapsed.
+- `lineage_qc()` returns a plausibility score, not a
+  probability that a sequence is correct. The plausibility score is meant to focus your attention on the sequence.
+- In `match_taxonomy()`, only `match_type == "exact"` is a perfect match.
+  You should review the non-exact rows (`$differences`). I've done this, but extra sets of eyes are always helpful. Also note that `generic`/`none` are unresolved.
+
 ## Updating the bundled database
 
 When a new MalAvi release arrives (a `MalAvi_<date>.zip`), I will put it in

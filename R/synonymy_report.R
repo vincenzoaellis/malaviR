@@ -10,6 +10,15 @@
 #' the size of the problem and which lineages to check, and \code{clean_alignment}
 #' to actually produce a de-duplicated alignment.
 #'
+#' With \code{method = "overlap"}, a shorter or partial sequence is grouped with a
+#' longer one when the two are \emph{compatible} at every position where both have
+#' a definite A/C/G/T base; positions missing in the shorter sequence (gaps or
+#' \code{N}) are treated as \strong{unknown}, not as evidence that the two agree
+#' there. The groups are therefore \dQuote{compatible haplotype groups} over the
+#' observed sites, not proof that the sequences are identical across the
+#' unobserved positions. \code{method = "strict"} only groups sequences identical
+#' across the whole alignment.
+#'
 #' @param alignment A \code{DNAbin} alignment. If \code{NULL} (default), the
 #'   bundled MalAvi alignment for \code{version} is used.
 #' @param method How to define a repeated haplotype: \code{"overlap"} (default)
@@ -44,6 +53,9 @@
 synonymy_report <- function(alignment = NULL, method = c("overlap", "strict"),
                             version = "latest") {
   method <- match.arg(method)
+  ## record whether the bundled alignment was used *before* reassigning
+  ## `alignment`, so the version stamp below is correct
+  used_bundled <- is.null(alignment)
   if (is.null(alignment)) alignment <- extract_alignment(version = version)
   if (!inherits(alignment, "DNAbin")) {
     stop("The alignment should be of class 'DNAbin'.", call. = FALSE)
@@ -84,5 +96,30 @@ synonymy_report <- function(alignment = NULL, method = c("overlap", "strict"),
   by_genus <- as.data.frame(table(genus = dropped$genus),
                             responseName = "n_redundant_names")
 
-  list(summary = summary, by_genus = by_genus, synonymies = synonymies)
+  out <- list(summary = summary, by_genus = by_genus, synonymies = synonymies)
+  ## MalAvi version is only meaningful when the bundled alignment was used
+  mv <- if (used_bundled) .malavi_resolve_version(version) else NA_character_
+  out <- .malavi_attach_meta(out, malavi_version = mv, method = method)
+  class(out) <- c("malavi_synonymy_report", class(out))
+  out
+}
+
+#' @export
+print.malavi_synonymy_report <- function(x, ...) {
+  s <- x$summary
+  cat("MalAvi synonymy report\n")
+  meta <- .malavi_meta_line(x)
+  if (!is.null(meta)) cat("  ", meta, "\n", sep = "")
+  cat("  sequences:        ", s$n_sequences, "\n", sep = "")
+  cat("  haplotypes:       ", s$n_haplotypes, "\n", sep = "")
+  cat("  redundant names:  ", s$n_redundant_names,
+      "  (", s$pct_diversity_inflation, "% diversity inflation)\n", sep = "")
+  cat("  synonymous groups: ", s$n_synonymous_haplotypes, "\n", sep = "")
+  if (identical(attr(x, "malavi_meta")$method, "overlap")) {
+    cat("\nNote: overlap groups are compatible over observed A/C/G/T sites;\n",
+        "positions missing in a partial sequence are treated as unknown.\n",
+        sep = "")
+  }
+  cat("\nSee $synonymies for the grouped lineage names to review.\n")
+  invisible(x)
 }

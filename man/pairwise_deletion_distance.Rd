@@ -61,7 +61,12 @@ position was dropped from the comparison (the same tie-break
 aln <- extract_alignment()
 q <- paste(as.character(aln[1, ]), collapse = "")
 ## nearest MalAvi lineages to this sequence (it is itself, so distance 0 first)
-head(pairwise_deletion_distance(q, top_n = 5))
+res <- pairwise_deletion_distance(q, top_n = 5)
+res
+## Always read `distance` together with `n_comparable`: a distance of 0 over
+## few comparable positions is weak agreement, not a confident match. Here the
+## two columns are shown side by side so low-overlap ties are visible.
+res[c("lineage", "distance", "n_comparable")]
 }
 \seealso{
 \code{\link{lineage_qc}}, \code{\link{ambiguous_pairs}},

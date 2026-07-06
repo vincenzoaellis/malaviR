@@ -33,6 +33,48 @@
   readRDS(.malavi_file(version, prefix))
 }
 
+## Resolve a requested version ("latest" or an explicit date tag) to the concrete
+## bundled date string, for stamping onto outputs as provenance. Returns
+## NA_character_ if nothing is bundled or the tag is unknown (the loaders raise
+## the actual error; this is only for the metadata stamp, so it must not itself
+## stop). Kept separate from .malavi_file(), which returns a path.
+.malavi_resolve_version <- function(version = "latest", prefix = "malavi_db_") {
+  vers <- .malavi_versions(prefix)
+  if (length(vers) == 0) return(NA_character_)
+  if (identical(version, "latest")) return(vers[1])
+  if (!version %in% vers) return(NA_character_)
+  version
+}
+
+## Attach a compact provenance list to an object as attr(x, "malavi_meta"),
+## dropping any NULL entries. Used to stamp outputs with the MalAvi version,
+## method, genetic code, etc. without changing their return structure (an extra
+## attribute leaves names(), print.data.frame(), and element access untouched).
+## The S3 print methods and interested callers read it back with
+## attr(x, "malavi_meta").
+.malavi_attach_meta <- function(x, ...) {
+  meta <- list(...)
+  meta <- meta[!vapply(meta, is.null, logical(1))]
+  attr(x, "malavi_meta") <- meta
+  x
+}
+
+## Pretty one-line rendering of a malavi_meta list for print methods, e.g.
+## "MalAvi 2026-03-23 | method: overlap". NULL/empty -> NULL (print nothing).
+.malavi_meta_line <- function(x) {
+  meta <- attr(x, "malavi_meta")
+  if (is.null(meta) || length(meta) == 0) return(NULL)
+  bits <- character(0)
+  if (!is.null(meta$malavi_version) && !is.na(meta$malavi_version))
+    bits <- c(bits, paste0("MalAvi ", meta$malavi_version))
+  if (!is.null(meta$method))        bits <- c(bits, paste0("method: ", meta$method))
+  if (!is.null(meta$select))        bits <- c(bits, paste0("select: ", meta$select))
+  if (!is.null(meta$min_comparable)) bits <- c(bits, paste0("min_comparable: ", meta$min_comparable))
+  if (!is.null(meta$clootl_version)) bits <- c(bits, paste0("clootl ", meta$clootl_version))
+  if (length(bits) == 0) return(NULL)
+  paste(bits, collapse = "  |  ")
+}
+
 ## Tidy the whitespace of every character column of a MalAvi table: collapse any
 ## run of whitespace -- including the stray line breaks and tabs the source
 ## spreadsheets embed in free-text fields (e.g. SPECIES_NAME "Setophaga citrina\n",

@@ -72,6 +72,15 @@ Two definitions of "same haplotype" are available via \code{method}:
 }
 The \code{informative_length} column (count of A/C/G/T bases) helps flag the
 short, partial sequences at the heart of the problem.
+
+Note on \code{method = "overlap"}: a partial sequence is collapsed into a more
+complete one when they are \emph{compatible} at every position where both carry
+a definite A/C/G/T base. Positions missing in the partial sequence are treated
+as \strong{unknown}, not as evidence of identity, so an overlap group is a group
+of sequences \emph{compatible over their observed sites} rather than sequences
+proven identical across the unobserved ones. Keeping the most complete member
+discards no observed base, but it does assume the shorter sequence would have
+matched at the positions it never determined.
 }
 \examples{
 aln <- extract_alignment()

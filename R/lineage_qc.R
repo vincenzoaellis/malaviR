@@ -83,8 +83,17 @@ build_malavi_site_profile <- function(reference = NULL, version = "latest",
 #' reading frame as the reference). For an unaligned sequence, find its closest
 #' lineages first with \code{\link{blast_malavi}}. The screen rolls a handful of
 #' checks into one \code{score} in \code{[0, 1]} (1 = typical of known MalAvi
-#' diversity, 0 = highly suspicious or invalid). The score is a transparent,
-#' rule-based heuristic, \strong{not} a calibrated probability.
+#' diversity, 0 = highly suspicious or invalid).
+#'
+#' The \code{score} is an empirical, rule-based plausibility index: known checks
+#' are turned into penalties with fixed weights and mapped to \code{[0, 1]}. It is
+#' \strong{not} a calibrated probability that the sequence is correct or
+#' incorrect, and it has not been validated against a labelled truth set. Use it
+#' to rank sequences for manual review, not as a pass/fail verdict. The
+#' translation uses genetic code 4 (protozoan mitochondrial), the correct code
+#' for avian haemosporidians. The bundled MalAvi version, genetic code, and
+#' expected length used for a given result are recorded on the returned object
+#' (\code{attr(x, "malavi_meta")}) and shown when it is printed.
 #'
 #' @section Flags:
 #' \code{flags} is a character vector of short tags you can filter on. The ones
@@ -195,8 +204,16 @@ lineage_qc <- function(query, reference = NULL, site_profile = NULL,
   }
   code <- .qc_genetic_code_4()
 
-  .lineage_qc_core(query, charmat, refcode, ref_names, site_profile, code,
-                   allow_ambiguity, chimera_check, settings, details)
+  out <- .lineage_qc_core(query, charmat, refcode, ref_names, site_profile, code,
+                          allow_ambiguity, chimera_check, settings, details)
+
+  ## stamp provenance so a saved result records what it was screened against.
+  ## The MalAvi version is only meaningful when the bundled alignment was used;
+  ## a user-supplied reference gets NA.
+  mv <- if (is.null(reference)) .malavi_resolve_version(version) else NA_character_
+  .malavi_attach_meta(out, malavi_version = mv,
+                      genetic_code = genetic_code,
+                      expected_length = expected_length)
 }
 
 ## Core lineage QC, working from a pre-built coded reference and site profile so
@@ -369,18 +386,27 @@ lineage_qc <- function(query, reference = NULL, site_profile = NULL,
 #' @export
 print.malavi_lineage_qc <- function(x, ...) {
   cat("MalAvi lineage QC\n")
-  cat("  call:   ", x$call, "\n", sep = "")
-  cat("  score:  ", formatC(x$score, format = "f", digits = 2),
+  cat("  call:                ", x$call, "\n", sep = "")
+  cat("  plausibility score:  ", formatC(x$score, format = "f", digits = 2),
       "   (0 = suspicious, 1 = typical of known MalAvi diversity)\n", sep = "")
   if (identical(x$call, "invalid_sequence")) {
     cat("\n", x$message, "\n", sep = "")
   } else {
     s <- x$summary
-    cat("  nearest lineage: ", s$nearest_lineage,
+    cat("  nearest lineage:     ", s$nearest_lineage,
         "  (distance ", s$nearest_distance, ")\n", sep = "")
     cat("  mutations vs nearest: ", s$n_mutations,
         "  (", s$n_nonsynonymous, " nonsynonymous, ",
         s$n_stop_codons, " stop codons)\n", sep = "")
+  }
+  ## reference provenance stamped by lineage_qc() (attr(x, "malavi_meta"))
+  meta <- attr(x, "malavi_meta")
+  if (!is.null(meta)) {
+    ref <- if (!is.null(meta$malavi_version) && !is.na(meta$malavi_version))
+      paste0("MalAvi ", meta$malavi_version) else "custom reference"
+    cat("  reference:           ", ref,
+        "  (genetic code ", meta$genetic_code,
+        ", expected length ", meta$expected_length, " bp)\n", sep = "")
   }
   cat("\nFlags:\n")
   if (length(x$flags) == 0) {
@@ -388,5 +414,7 @@ print.malavi_lineage_qc <- function(x, ...) {
   } else {
     cat(paste0("  - ", x$flags, collapse = "\n"), "\n")
   }
+  cat("\nNote: the plausibility score is a heuristic screen for manual review,\n",
+      "not a probability that the sequence is correct or incorrect.\n", sep = "")
   invisible(x)
 }

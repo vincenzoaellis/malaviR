@@ -48,7 +48,12 @@
 #' aln <- extract_alignment()
 #' q <- paste(as.character(aln[1, ]), collapse = "")
 #' ## nearest MalAvi lineages to this sequence (it is itself, so distance 0 first)
-#' head(pairwise_deletion_distance(q, top_n = 5))
+#' res <- pairwise_deletion_distance(q, top_n = 5)
+#' res
+#' ## Always read `distance` together with `n_comparable`: a distance of 0 over
+#' ## few comparable positions is weak agreement, not a confident match. Here the
+#' ## two columns are shown side by side so low-overlap ties are visible.
+#' res[c("lineage", "distance", "n_comparable")]
 #' @export
 pairwise_deletion_distance <- function(query, reference = NULL,
                                        version = "latest", top_n = NULL) {
@@ -82,5 +87,9 @@ pairwise_deletion_distance <- function(query, reference = NULL,
   res <- .qc_nearest(qcode, refcode, ref_names, top_n = tn)
   res$index <- NULL
   rownames(res) <- NULL
-  res
+  ## stamp provenance; the MalAvi version is only meaningful when the bundled
+  ## alignment was the reference (a user-supplied reference gets NA)
+  mv <- if (is.null(reference)) .malavi_resolve_version(version) else NA_character_
+  .malavi_attach_meta(res, malavi_version = mv, method = "pairwise_deletion",
+                      reference_length = ref_len)
 }

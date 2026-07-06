@@ -48,6 +48,24 @@
 #' internet connection or \pkg{clootl} installation is needed at run time. See
 #' \code{\link{clootl_taxonomy_version}} for the bundled taxonomy year.
 #'
+#' @section Interpreting \code{match_type}:
+#' The values differ in how much they should be trusted:
+#' \describe{
+#'   \item{\code{"exact"}}{the strongest match: the host name is itself a current
+#'     eBird scientific name. Safe to use as-is.}
+#'   \item{\code{"manual"}, \code{"synonym:*"}, \code{"reassigned:*"},
+#'     \code{"legacy"}}{resolved, but by a rule rather than an exact hit -- a
+#'     maintainer override, a recognized synonym, an epithet/genus reassignment, or
+#'     the old \code{malaviR} key. \strong{Inspect these} when the exact taxonomy
+#'     matters for your analysis; \code{"legacy"} and weak reassignments are review
+#'     targets, not necessarily errors.}
+#'   \item{\code{"generic"}, \code{"none"}}{\strong{not} resolved to a species:
+#'     \code{"generic"} names can never match (\dQuote{sp.}, hybrids, bare genera)
+#'     and \code{"none"} simply did not match. Treat these as unresolved.}
+#' }
+#' The \code{differences} table returned below is exactly the set of non-\code{exact}
+#' rows, i.e. the ones worth checking by hand.
+#'
 #' @param species Character vector of species names to match. If \code{NULL}
 #'   (default), the unique host species in the bundled MalAvi
 #'   \code{"Hosts and Sites Table"} are used, along with their MalAvi family and
@@ -88,6 +106,9 @@
 #' @export
 match_taxonomy <- function(species = NULL, version = "latest",
                            family = NULL, order = NULL) {
+  ## record whether host names came from the bundled data *before* reassigning
+  ## `species`, so the version stamp below is correct
+  used_bundled <- is.null(species)
   if (is.null(species)) {
     hosts   <- extract_table("Hosts and Sites Table", version = version)
     info    <- .host_family_order(hosts)
@@ -211,5 +232,30 @@ match_taxonomy <- function(species = NULL, version = "latest",
   key <- key[order(key$malavi_species), ]
   rownames(key) <- NULL
 
-  list(key = key, differences = key[key$match_type != "exact", ])
+  out <- list(key = key, differences = key[key$match_type != "exact", ])
+  ## MalAvi version is only meaningful when host names came from the bundled data
+  mv <- if (used_bundled) .malavi_resolve_version(version) else NA_character_
+  out <- .malavi_attach_meta(out, malavi_version = mv,
+                             clootl_version = clootl_year)
+  class(out) <- c("malavi_taxonomy_match", class(out))
+  out
+}
+
+#' @export
+print.malavi_taxonomy_match <- function(x, ...) {
+  key <- x$key
+  cat("MalAvi -> clootl taxonomy match\n")
+  meta <- .malavi_meta_line(x)
+  if (!is.null(meta)) cat("  ", meta, "\n", sep = "")
+  cat("  species:  ", nrow(key), "\n", sep = "")
+  ## roll the detailed synonym:/reassigned: labels up to their family for a
+  ## compact summary, but leave $key/$differences untouched
+  fam <- sub(":.*$", "", key$match_type)
+  tab <- sort(table(fam), decreasing = TRUE)
+  cat("  by match_type:\n")
+  for (nm in names(tab)) cat("    ", nm, ": ", tab[[nm]], "\n", sep = "")
+  cat("\nNote: only match_type \"exact\" is a current-name hit; inspect the rest\n",
+      "(see $differences) when taxonomy matters. \"generic\"/\"none\" are unresolved.\n",
+      sep = "")
+  invisible(x)
 }

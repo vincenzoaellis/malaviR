@@ -88,6 +88,26 @@ The clootl taxonomy is bundled with \code{malaviR} as a dated snapshot, so no
 internet connection or \pkg{clootl} installation is needed at run time. See
 \code{\link{clootl_taxonomy_version}} for the bundled taxonomy year.
 }
+\section{Interpreting \code{match_type}}{
+
+The values differ in how much they should be trusted:
+\describe{
+  \item{\code{"exact"}}{the strongest match: the host name is itself a current
+    eBird scientific name. Safe to use as-is.}
+  \item{\code{"manual"}, \code{"synonym:*"}, \code{"reassigned:*"},
+    \code{"legacy"}}{resolved, but by a rule rather than an exact hit -- a
+    maintainer override, a recognized synonym, an epithet/genus reassignment, or
+    the old \code{malaviR} key. \strong{Inspect these} when the exact taxonomy
+    matters for your analysis; \code{"legacy"} and weak reassignments are review
+    targets, not necessarily errors.}
+  \item{\code{"generic"}, \code{"none"}}{\strong{not} resolved to a species:
+    \code{"generic"} names can never match (\dQuote{sp.}, hybrids, bare genera)
+    and \code{"none"} simply did not match. Treat these as unresolved.}
+}
+The \code{differences} table returned below is exactly the set of non-\code{exact}
+rows, i.e. the ones worth checking by hand.
+}
+
 \examples{
 res <- match_taxonomy(c("Turdus merula", "Cyanistes caeruleus", "Anas sp."))
 res$key
