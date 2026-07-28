@@ -482,11 +482,16 @@
              stringsAsFactors = FALSE)
 }
 
-## NCBI genetic code 4 (mold, protozoan, and coelenterate mitochondrial code):
-## TGA = W (not stop), ATA = M, and TAA/TAG remain stops. This is the code that
-## fits the avian haemosporidian (apicomplexan) cytochrome b barcode: across the
-## bundled alignment, frame 1 (positions 1,4,7,...) is essentially stop-free
-## under this code. Hardcoded to avoid a Biostrings dependency.
+## NCBI genetic code 4 (mold, protozoan, and coelenterate mitochondrial code).
+## Code 4 is identical to the standard code except that TGA is tryptophan
+## rather than a stop; TAA and TAG remain the only stops, and ATA/AGA/AGG keep
+## their standard meanings (I/R/R). Do not copy the invertebrate mitochondrial
+## code (table 5) here: it also sets ATA = M and AGA/AGG = S, which is wrong for
+## haemosporidians. This is the code that fits the avian haemosporidian
+## (apicomplexan) cytochrome b barcode: across the bundled alignment, frame 1
+## (positions 1,4,7,...) is essentially stop-free under this code. Hardcoded to
+## avoid a Biostrings dependency; test-lineage_qc.R checks it against the
+## standard code plus the single TGA difference.
 .qc_genetic_code_4 <- function() {
   c(
     TTT = "F", TTC = "F", TTA = "L", TTG = "L",
@@ -497,10 +502,10 @@
     CCT = "P", CCC = "P", CCA = "P", CCG = "P",
     CAT = "H", CAC = "H", CAA = "Q", CAG = "Q",
     CGT = "R", CGC = "R", CGA = "R", CGG = "R",
-    ATT = "I", ATC = "I", ATA = "M", ATG = "M",
+    ATT = "I", ATC = "I", ATA = "I", ATG = "M",
     ACT = "T", ACC = "T", ACA = "T", ACG = "T",
     AAT = "N", AAC = "N", AAA = "K", AAG = "K",
-    AGT = "S", AGC = "S", AGA = "S", AGG = "S",
+    AGT = "S", AGC = "S", AGA = "R", AGG = "R",
     GTT = "V", GTC = "V", GTA = "V", GTG = "V",
     GCT = "A", GCC = "A", GCA = "A", GCG = "A",
     GAT = "D", GAC = "D", GAA = "E", GAG = "E",
@@ -528,6 +533,22 @@
   aa <- unname(code[codons])
   aa[is.na(aa)] <- "X"
   aa
+}
+
+## Number of stop codons obtained by translating an upper-case base vector in
+## each of the three forward reading frames (frame f starts at position f).
+## Used only to diagnose a query that is the right length but appears to have
+## been padded on the wrong end, which shifts it out of frame 1. Returns an
+## integer vector of length 3, named "1", "2", "3".
+.qc_frame_stop_counts <- function(qchars, code = .qc_genetic_code_4()) {
+  counts <- vapply(1:3, function(frame) {
+    if (length(qchars) < frame + 2L) return(0L)
+    ## drop the leading frame - 1 bases, then translate what remains in frame 1
+    shifted <- qchars[seq.int(frame, length(qchars))]
+    sum(.qc_translate(shifted, code) == "*")
+  }, integer(1))
+  names(counts) <- as.character(1:3)
+  counts
 }
 
 ## Per-site base profile of a reference alignment, given its character matrix.

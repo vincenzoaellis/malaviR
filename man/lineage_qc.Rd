@@ -81,7 +81,10 @@ An object of class \code{malavi_lineage_qc}: a list with
       and whether the query base is seen at that site in MalAvi.}
   }
   With \code{details = TRUE} the list also holds \code{translation},
-  \code{site_profile_score}, and \code{chimera}.
+  \code{site_profile_score}, and \code{chimera}. A \code{message} element is
+  present only when the query could not be screened (\code{invalid_sequence})
+  or when the reading-frame diagnosis fired
+  (\code{possible_frame_shift_check_padding}); it explains what to do next.
 }
 \description{
 \strong{Experimental, use with caution.} A lightweight plausibility screen for
@@ -117,6 +120,12 @@ you may see:
     \code{invalid_or_disallowed_characters}}{the query is not clean A/C/G/T.}
   \item{\code{contains_stop_codon}}{translation (frame 1, genetic code 4)
     contains a stop codon -- a strong sign of an error or wrong frame.}
+  \item{\code{possible_frame_shift_check_padding}}{the query has stop codons in
+    frame 1 but none in frame 2 or 3, so it is probably a short amplicon padded
+    on the wrong end rather than an aberrant sequence. The other warnings on
+    such a query (divergence, chimera, nonsynonymous counts) are artifacts of
+    the shift; re-place the sequence in the 479 bp frame (see
+    \code{\link{frame_to_malavi}}) and screen it again.}
   \item{\code{exact_match_to_known_lineage}, \code{near_known_lineage},
     \code{moderately_divergent_from_known_lineages},
     \code{highly_divergent_from_known_lineages}}{how far the query sits from the

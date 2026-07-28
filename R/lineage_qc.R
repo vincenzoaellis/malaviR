@@ -104,6 +104,12 @@ build_malavi_site_profile <- function(reference = NULL, version = "latest",
 #'     \code{invalid_or_disallowed_characters}}{the query is not clean A/C/G/T.}
 #'   \item{\code{contains_stop_codon}}{translation (frame 1, genetic code 4)
 #'     contains a stop codon -- a strong sign of an error or wrong frame.}
+#'   \item{\code{possible_frame_shift_check_padding}}{the query has stop codons in
+#'     frame 1 but none in frame 2 or 3, so it is probably a short amplicon padded
+#'     on the wrong end rather than an aberrant sequence. The other warnings on
+#'     such a query (divergence, chimera, nonsynonymous counts) are artifacts of
+#'     the shift; re-place the sequence in the 479 bp frame (see
+#'     \code{\link{frame_to_malavi}}) and screen it again.}
 #'   \item{\code{exact_match_to_known_lineage}, \code{near_known_lineage},
 #'     \code{moderately_divergent_from_known_lineages},
 #'     \code{highly_divergent_from_known_lineages}}{how far the query sits from the
@@ -171,7 +177,10 @@ build_malavi_site_profile <- function(reference = NULL, version = "latest",
 #'       and whether the query base is seen at that site in MalAvi.}
 #'   }
 #'   With \code{details = TRUE} the list also holds \code{translation},
-#'   \code{site_profile_score}, and \code{chimera}.
+#'   \code{site_profile_score}, and \code{chimera}. A \code{message} element is
+#'   present only when the query could not be screened (\code{invalid_sequence})
+#'   or when the reading-frame diagnosis fired
+#'   (\code{possible_frame_shift_check_padding}); it explains what to do next.
 #' @seealso \code{\link{lineage_screen}},
 #'   \code{\link{build_malavi_site_profile}}, \code{\link{blast_malavi}}
 #' @examples
@@ -266,6 +275,32 @@ lineage_qc <- function(query, reference = NULL, site_profile = NULL,
   has_unknown_aa <- any(aa == "X")
   if (has_stop_codon) flags <- c(flags, "contains_stop_codon")
   if (has_unknown_aa) flags <- c(flags, "contains_unknown_amino_acid_after_translation")
+
+  ## ---- reading-frame diagnosis ----
+  ## A query that is the right length but stop-ridden in frame 1 is often not
+  ## biologically odd at all: it is a shorter amplicon padded on the wrong end,
+  ## so the barcode sits in frame 2 or 3. (A primer-trimmed Haemoproteus/
+  ## Plasmodium ASV is 478 bp covering frame positions 2-479, so padding it with
+  ## N at the 3' end instead of the 5' end produces exactly this.) Only checked
+  ## when frame 1 already has a stop, so this can add a flag to a sequence being
+  ## rejected but can never rescue one that passes.
+  frame_message <- NULL
+  if (has_stop_codon) {
+    frame_stops <- .qc_frame_stop_counts(qchars, code)
+    clean_frames <- which(frame_stops == 0L)
+    if (length(clean_frames) > 0) {
+      flags <- c(flags, "possible_frame_shift_check_padding")
+      frame_message <- paste0(
+        "The query translates with ", n_stop_codons,
+        " stop codon(s) in frame 1, but is stop-free in frame ",
+        paste(clean_frames, collapse = " and "),
+        ". This usually means a short amplicon was padded on the wrong end ",
+        "rather than a genuinely aberrant sequence. Check that the sequence is ",
+        "placed in the MalAvi 479 bp frame before treating the other warnings ",
+        "as biological (see frame_to_malavi)."
+      )
+    }
+  }
 
   ## ---- nearest known lineage ----
   qcode   <- .qc_code_vec(qchars)
@@ -371,6 +406,8 @@ lineage_qc <- function(query, reference = NULL, site_profile = NULL,
   result <- list(summary = summary, call = call, score = score,
                  flags = unique(flags), counts = counts,
                  nearest = nearest, mutations = mutations)
+  ## only present when the frame diagnosis above found a stop-free frame
+  if (!is.null(frame_message)) result$message <- frame_message
   if (details) {
     result$translation <- list(amino_acid_sequence = paste(aa, collapse = ""),
                                n_stop_codons = n_stop_codons,
@@ -413,6 +450,8 @@ print.malavi_lineage_qc <- function(x, ...) {
     cat("  none\n")
   } else {
     cat(paste0("  - ", x$flags, collapse = "\n"), "\n")
+    ## the reading-frame diagnosis, when there is one, needs the full sentence
+    if (!is.null(x$message)) cat("\n", x$message, "\n", sep = "")
   }
   cat("\nNote: the plausibility score is a heuristic screen for manual review,\n",
       "not a probability that the sequence is correct or incorrect.\n", sep = "")

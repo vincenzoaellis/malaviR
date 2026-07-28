@@ -104,6 +104,109 @@ test_that("an exact match outranks an N-containing near-twin at distance 0", {
   expect_equal(qc$summary$nearest_lineage, "clean")   # not the N-twin
 })
 
+test_that("the hardcoded genetic code is NCBI table 4, not table 5", {
+  ## Regression: ATA/AGA/AGG were previously given their invertebrate
+  ## mitochondrial (table 5) values M/S/S. Table 4 is the standard code with the
+  ## single change TGA = W, so those three keep their standard meanings. Getting
+  ## them wrong does not affect stop counts (none of the three is ever a stop),
+  ## but it does corrupt reported translations and the synonymous /
+  ## nonsynonymous classification of substitutions among them.
+  code <- .qc_genetic_code_4()
+  expect_equal(length(code), 64L)
+  expect_equal(unname(code[["TGA"]]), "W")   # the one table-4 difference
+  expect_equal(unname(code[["ATA"]]), "I")   # table 5 would say M
+  expect_equal(unname(code[["AGA"]]), "R")   # table 5 would say S
+  expect_equal(unname(code[["AGG"]]), "R")   # table 5 would say S
+  ## TAA and TAG are the only stops under table 4
+  expect_equal(sort(names(code)[code == "*"]), c("TAA", "TAG"))
+})
+
+test_that("the hardcoded genetic code matches Biostrings table 4 codon for codon", {
+  ## The authoritative check, run whenever Biostrings is available: compare all
+  ## 64 codons against NCBI table 4 rather than re-typing the table by hand.
+  skip_if_not_installed("Biostrings")
+  reference_code <- Biostrings::getGeneticCode("4")
+  ours <- .qc_genetic_code_4()
+  expect_equal(ours[sort(names(ours))],
+               reference_code[sort(names(reference_code))],
+               ignore_attr = TRUE)
+})
+
+test_that("an AGA/AGG substitution is scored synonymous, not nonsynonymous", {
+  ## Consequence of the table-5 bug: AGA and AGG are both arginine under table 4,
+  ## so a change between them is synonymous. Under the old (table 5) values they
+  ## were both serine, which happened to agree here -- but AGA vs CGA (both R
+  ## under table 4, R vs R under table 5 too) is not a discriminating case, so we
+  ## use AGA -> CGA, which the old table scored S -> R, i.e. nonsynonymous.
+  ref <- ape::as.DNAbin(rbind(r1 = strsplit("atgagaggg", "")[[1]]))
+  qc  <- lineage_qc("atgcgaggg", ref, expected_length = 9, chimera_check = FALSE)
+  expect_equal(nrow(qc$mutations), 1L)
+  expect_equal(qc$mutations$nearest_aa, "R")
+  expect_equal(qc$mutations$query_aa, "R")
+  expect_true(qc$mutations$synonymous)
+  expect_equal(qc$summary$n_nonsynonymous, 0L)
+})
+
+test_that("lineage_qc flags a likely frame shift when another frame is stop-free", {
+  ## A right-length query that is stop-ridden in frame 1 but stop-free in frame 2
+  ## or 3 is almost always a short amplicon padded on the wrong end, not an
+  ## aberrant sequence. Here frames 1 and 2 both carry a stop and frame 3 does
+  ## not, so the diagnosis should name frame 3.
+  ##   frame 1: TAA CTA AGG GCC -> *  L R A   (stop)
+  ##   frame 2: AAC TAA GGG CC  ->  N *  G    (stop)
+  ##   frame 3: ACT AAG GGC C   ->  T K  G    (clean)
+  qc <- lineage_qc("taactaagggcc", make_ref(),
+                   expected_length = 12, chimera_check = FALSE)
+  expect_true("contains_stop_codon" %in% qc$flags)
+  expect_true("possible_frame_shift_check_padding" %in% qc$flags)
+  expect_match(qc$message, "frame 3")
+  expect_match(qc$message, "padded on the wrong end")
+})
+
+test_that("lineage_qc does not claim a frame shift when every frame has a stop", {
+  ## Stops in all three frames means the sequence is genuinely bad, not shifted,
+  ## so the frame-shift flag and its message must stay absent.
+  ##   frame 1: TTA GTT AGT TAG,  frame 2: TAG TTA GTT AG,  frame 3: AGT TAG TTA G
+  qc <- lineage_qc("ttagttagttag", make_ref(),
+                   expected_length = 12, chimera_check = FALSE)
+  expect_true("contains_stop_codon" %in% qc$flags)
+  expect_false("possible_frame_shift_check_padding" %in% qc$flags)
+  expect_null(qc$message)
+})
+
+test_that("a correctly framed query never gets the frame-shift flag", {
+  ## The check only ever runs on a query that already has a frame-1 stop, so a
+  ## clean sequence cannot pick the flag up.
+  qc <- lineage_qc("atgtttgggccc", make_ref(),
+                   expected_length = 12, chimera_check = FALSE)
+  expect_false("possible_frame_shift_check_padding" %in% qc$flags)
+  expect_null(qc$message)
+})
+
+test_that("a real MalAvi lineage padded on the wrong end is diagnosed as shifted", {
+  ## The realistic case from the field: a primer-trimmed haemosporidian ASV is
+  ## 478 bp covering frame positions 2-479, so padding it with N at the 3' end
+  ## instead of the 5' end yields a 479 bp query that is out of frame. It should
+  ## be rejected AND told why, rather than being reported as merely divergent.
+  aln <- extract_alignment()
+  ## use the first complete, unambiguous lineage: many MalAvi entries are partial
+  ## (gaps/Ns), and those would confound the frame reading
+  seqs <- toupper(apply(as.character(aln), 1, paste, collapse = ""))
+  complete <- seqs[nchar(seqs) == 479 & !grepl("[^ACGT]", seqs)]
+  skip_if_not(length(complete) > 0)
+  full <- unname(complete[1])
+
+  shifted <- paste0(substr(full, 2, 479), "N")   # dropped base 1, padded at 3'
+  qc <- lineage_qc(shifted, allow_ambiguity = TRUE, chimera_check = FALSE)
+  expect_true("possible_frame_shift_check_padding" %in% qc$flags)
+  expect_match(qc$message, "frame 3")
+
+  ## padding the same 478 bp on the correct (5') end puts it back in frame
+  correct <- paste0("N", substr(full, 2, 479))
+  qc2 <- lineage_qc(correct, allow_ambiguity = TRUE, chimera_check = FALSE)
+  expect_false("possible_frame_shift_check_padding" %in% qc2$flags)
+})
+
 test_that("lineage_qc rejects unsupported genetic codes", {
   expect_error(lineage_qc("atgtttgggccc", make_ref(), genetic_code = 1),
                "genetic_code = 4")
