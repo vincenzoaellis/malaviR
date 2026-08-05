@@ -18,3 +18,10 @@ data-raw/taxonomy_audit.csv
 
 # local-only code_reporter audit output — private, keep off GitHub
 code_reporter/
+
+# local-only working record of MalAvi data problems. NEVER publish this.
+# It holds the raw downstream reports and the verification behind them. The
+# curated, public-facing version of this information is the list printed by
+# malavi_issues() in R/malavi_issues.R, and that list is the only version that
+# should ever reach GitHub, the built package, or the website.
+DATA_ISSUES.md

@@ -9,3 +9,12 @@
 ^.*\.zip$
 ^doc$
 ^Meta$
+^DATA_ISSUES\.md$
+## Local-only files. These are all in .gitignore too, but .Rbuildignore is a
+## separate list and R CMD build does NOT read .gitignore -- without these lines
+## a built tarball carries them, including the GitHub token.
+^github_token_.*\.txt$
+^code_reporter$
+^malavi_lin_qc_notes\.txt$
+^\.claude$
+^docs$
