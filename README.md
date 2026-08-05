@@ -73,6 +73,20 @@ seq <- paste(as.character(aln[1, ]), collapse = "")   # your own sequence here (
 lineage_qc(seq)                                       # see the report and investigate any flags
 ```
 
+One thing worth knowing: if you hand `lineage_qc()` a sequence that is *already* in MalAvi, it will find an exact match to itself and always come back `known_lineage`, no matter what the sequence looks like. To QC a lineage that's already in the database, hold it out of the reference (`lineage_qc(seq, reference = aln[-i, ])`), or use `lineage_screen()`, which is built to do exactly that for the whole database at once.
+
+### Host and biogeographic plausibility
+
+Also **experimental**. Where `lineage_qc()` asks whether the *sequence* looks right, `lineage_plausibility()` asks whether the *lineage* makes sense where you found it: has it been reported before, in that host species (or that host's genus, family, order), and in that country or region? This is the context I want when a deep-sequenced amplicon run turns up a handful of reads of some lineage in a bird that seems like an odd host. A genuine low-level or migration-acquired infection is usually a lineage already known from the area, often from a related host; a contaminant is often a lineage that's abundant somewhere else in the same run and has no business being in that host or that place. The function gives you the records; you supply the read counts and the judgment.
+
+```r
+lineage_plausibility("SGS1", host = "Parus major", country = "Sweden")   # about as well recorded as MalAvi gets
+lineage_plausibility("TUPHI01", host = "Parus major")                    # a thrush parasite in a tit -> new_host_family
+lineage_plausibility("SGS1", host = "Parus major", region = "Antarctica")
+```
+
+Please read "new" here as "no prior record", **not** "impossible". MalAvi records where people have looked, and that sampling is heavily biased toward well-studied host families and well-studied countries.
+
 ### Screening the whole database (studies vs. non-synonymous mutations)
 
 Staffan Bensch pointed out to me that lineages reported by only a single
@@ -195,6 +209,21 @@ data(taxonomy)
 
 `clean_names()` strips the genus prefix from alignment tip labels. This was also in the older version of `malaviR` and can be useful for linking the alignment to the tables (alignment uses the genus prefix, tables do not).
 
+### Known problems in the MalAvi data
+
+`malaviR` ships the MalAvi tables **verbatim** — I don't quietly correct them, because then the package and the database would disagree and you'd have no way to tell. But problems do turn up in the data, usually when someone is building something downstream and hits one. `malavi_issues()` is where the package remembers them.
+
+```r
+malavi_issues()                          # the known issues in the bundled release
+malavi_issues(version = "2026-03-23")    # or a particular release
+```
+
+It prints a short, plain list: a heading naming the release, then a title and one sentence per issue. What's in there at the moment is one lineage whose alignment genus prefix disagrees with its `GENUS_NAME`, seven lineages whose `GENUS_NAME` is the string `"N/A"` (which turns into a fake `N_` genus prefix), a lineage name that appears twice in the Grand Lineage Summary because it's been reported under two morphospecies, and a few lineages that are in the alignment but not the table or the other way round.
+
+The part that matters is that each issue is **re-derived from the release you have loaded** rather than stored as text. The counts and lineage names you read are the ones found in your release, so the wording can't drift out of step with the data — and an issue that a future MalAvi release fixes stops being found and simply drops off the list, without me editing anything.
+
+If you find something wrong in the data, please open an issue — I'd rather have it recorded here than have everyone rediscover it. Actual corrections go upstream, into a future MalAvi release.
+
 ## Important assumptions
 
 A few important points:
@@ -216,6 +245,13 @@ A few important points:
   These should be **reviewed**, not necessarily collapsed.
 - `lineage_qc()` returns a plausibility score, not a
   probability that a sequence is correct. The plausibility score is meant to focus your attention on the sequence.
+  Also note that a lineage already in MalAvi will always match itself, so screening one
+  is only informative if you hold it out of the reference (see above).
+- `lineage_plausibility()` describes **sampling**, not biology. "New host" or
+  "new region" means MalAvi has no prior record, which is often just where people
+  haven't looked yet. Never treat a flag on its own as grounds to discard a detection.
+- The MalAvi tables are shipped **verbatim**. Known problems in them are reported by
+  `malavi_issues()`, not silently patched.
 - In `match_taxonomy()`, only `match_type == "exact"` is a perfect match.
   You should review the non-exact rows (`$differences`). I've done this, but extra sets of eyes are always helpful. Also note that `generic`/`none` are unresolved.
 
