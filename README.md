@@ -75,18 +75,6 @@ lineage_qc(seq)                                       # see the report and inves
 
 One thing worth knowing: if you hand `lineage_qc()` a sequence that is *already* in MalAvi, it will find an exact match to itself and always come back `known_lineage`, no matter what the sequence looks like. To QC a lineage that's already in the database, hold it out of the reference (`lineage_qc(seq, reference = aln[-i, ])`), or use `lineage_screen()`, which is built to do exactly that for the whole database at once.
 
-### Host and biogeographic plausibility
-
-Also **experimental**. Where `lineage_qc()` asks whether the *sequence* looks right, `lineage_plausibility()` asks whether the *lineage* makes sense where you found it: has it been reported before, in that host species (or that host's genus, family, order), and in that country or region? This is the context I want when a deep-sequenced amplicon run turns up a handful of reads of some lineage in a bird that seems like an odd host. A genuine low-level or migration-acquired infection is usually a lineage already known from the area, often from a related host; a contaminant is often a lineage that's abundant somewhere else in the same run and has no business being in that host or that place. The function gives you the records; you supply the read counts and the judgment.
-
-```r
-lineage_plausibility("SGS1", host = "Parus major", country = "Sweden")   # about as well recorded as MalAvi gets
-lineage_plausibility("TUPHI01", host = "Parus major")                    # a thrush parasite in a tit -> new_host_family
-lineage_plausibility("SGS1", host = "Parus major", region = "Antarctica")
-```
-
-Please read "new" here as "no prior record", **not** "impossible". MalAvi records where people have looked, and that sampling is heavily biased toward well-studied host families and well-studied countries.
-
 ### Screening the whole database (studies vs. non-synonymous mutations)
 
 Staffan Bensch pointed out to me that lineages reported by only a single
@@ -247,9 +235,6 @@ A few important points:
   probability that a sequence is correct. The plausibility score is meant to focus your attention on the sequence.
   Also note that a lineage already in MalAvi will always match itself, so screening one
   is only informative if you hold it out of the reference (see above).
-- `lineage_plausibility()` describes **sampling**, not biology. "New host" or
-  "new region" means MalAvi has no prior record, which is often just where people
-  haven't looked yet. Never treat a flag on its own as grounds to discard a detection.
 - The MalAvi tables are shipped **verbatim**. Known problems in them are reported by
   `malavi_issues()`, not silently patched.
 - In `match_taxonomy()`, only `match_type == "exact"` is a perfect match.
