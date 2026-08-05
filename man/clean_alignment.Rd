@@ -5,15 +5,17 @@
 \title{Identify and collapse repeated haplotypes in a MalAvi alignment}
 \usage{
 clean_alignment(
-  alignment,
+  alignment = NULL,
   method = c("overlap", "strict"),
   select = c("complete", "random"),
-  keep = NULL
+  keep = NULL,
+  version = "latest"
 )
 }
 \arguments{
-\item{alignment}{A \code{DNAbin} alignment (e.g. from
-\code{\link{extract_alignment}}).}
+\item{alignment}{A \code{DNAbin} alignment, or \code{NULL} (default) to use the
+bundled MalAvi alignment for \code{version} -- the same default as
+\code{\link{synonymy_report}}.}
 
 \item{method}{How to define a repeated haplotype: \code{"overlap"} (default)
 or \code{"strict"} (see Details).}
@@ -26,6 +28,9 @@ sequence (ties broken alphabetically); \code{"random"} keeps one at random
 \item{keep}{Optional character vector of lineage names to keep. For each
 synonymy group containing one of these names, that name is kept; an error is
 raised if a single group contains more than one supplied name.}
+
+\item{version}{MalAvi release to use when \code{alignment} is \code{NULL}; a
+date string or \code{"latest"} (default).}
 }
 \value{
 A list with elements:
@@ -83,9 +88,13 @@ discards no observed base, but it does assume the shorter sequence would have
 matched at the positions it never determined.
 }
 \examples{
-aln <- extract_alignment()
-res <- clean_alignment(aln)
+## defaults to the bundled alignment
+res <- clean_alignment()
 head(res$synonymies)
+
+## or pass your own
+aln <- extract_alignment(genus = "Plasmodium")
+res_plas <- clean_alignment(aln)
 
 ## quick random pick (reproducible with a seed)
 set.seed(1)

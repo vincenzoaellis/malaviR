@@ -40,8 +40,11 @@
 #' discards no observed base, but it does assume the shorter sequence would have
 #' matched at the positions it never determined.
 #'
-#' @param alignment A \code{DNAbin} alignment (e.g. from
-#'   \code{\link{extract_alignment}}).
+#' @param alignment A \code{DNAbin} alignment, or \code{NULL} (default) to use the
+#'   bundled MalAvi alignment for \code{version} -- the same default as
+#'   \code{\link{synonymy_report}}.
+#' @param version MalAvi release to use when \code{alignment} is \code{NULL}; a
+#'   date string or \code{"latest"} (default).
 #' @param method How to define a repeated haplotype: \code{"overlap"} (default)
 #'   or \code{"strict"} (see Details).
 #' @param select How to pick the lineage kept from each synonymy group when it is
@@ -69,18 +72,27 @@
 #' 21(2): e1012911. \doi{10.1371/journal.ppat.1012911}
 #' @seealso \code{\link{synonymy_report}}, \code{\link{extract_alignment}}
 #' @examples
-#' aln <- extract_alignment()
-#' res <- clean_alignment(aln)
+#' ## defaults to the bundled alignment
+#' res <- clean_alignment()
 #' head(res$synonymies)
+#'
+#' ## or pass your own
+#' aln <- extract_alignment(genus = "Plasmodium")
+#' res_plas <- clean_alignment(aln)
 #'
 #' ## quick random pick (reproducible with a seed)
 #' set.seed(1)
 #' res_rand <- clean_alignment(aln, select = "random")
 #' @export
-clean_alignment <- function(alignment, method = c("overlap", "strict"),
-                            select = c("complete", "random"), keep = NULL) {
+clean_alignment <- function(alignment = NULL, method = c("overlap", "strict"),
+                            select = c("complete", "random"), keep = NULL,
+                            version = "latest") {
   method <- match.arg(method)
   select <- match.arg(select)
+  ## record whether the bundled alignment was used *before* reassigning
+  ## `alignment`, so the version stamp below is correct
+  used_bundled <- is.null(alignment)
+  if (is.null(alignment)) alignment <- extract_alignment(version = version)
   if (!inherits(alignment, "DNAbin")) {
     stop("The alignment should be of class 'DNAbin'.", call. = FALSE)
   }
@@ -97,7 +109,10 @@ clean_alignment <- function(alignment, method = c("overlap", "strict"),
 
   out <- list(synonymies = syn$synonymies, kept = syn$kept, dropped = dropped,
               alignment_clean = alignment_clean)
-  out <- .malavi_attach_meta(out, method = method, select = select)
+  ## MalAvi version is only meaningful when the bundled alignment was cleaned
+  mv <- if (used_bundled) .malavi_resolve_version(version) else NA_character_
+  out <- .malavi_attach_meta(out, malavi_version = mv, method = method,
+                             select = select)
   class(out) <- c("malavi_alignment_clean", class(out))
   out
 }

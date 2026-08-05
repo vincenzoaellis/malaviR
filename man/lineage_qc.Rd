@@ -110,6 +110,30 @@ for avian haemosporidians. The bundled MalAvi version, genetic code, and
 expected length used for a given result are recorded on the returned object
 (\code{attr(x, "malavi_meta")}) and shown when it is printed.
 }
+\section{Screening a lineage that is already in MalAvi}{
+
+The screen compares the query against every sequence in \code{reference}. A
+query taken from the MalAvi release is therefore in its own reference: it
+matches itself at distance 0 and always returns \code{call = "known_lineage"},
+whatever its own quality. The failure mode is a confident-looking pass rather
+than an error, so it is easy to miss.
+
+To QC a lineage that is already in the database, hold it out of the reference:
+
+\preformatted{
+aln   <- extract_alignment()
+i     <- which(clean_names(rownames(aln)) == "SGS1")
+query <- paste(as.character(aln[i, ]), collapse = "")
+qc    <- lineage_qc(query, reference = aln[-i, ])
+}
+
+Note that a lineage with a synonym in the alignment (a partial sequence
+compatible with it, see \code{\link{synonymy_report}}) will still match that
+synonym at or near distance 0 after the leave-one-out. To screen every lineage
+at once, use \code{\link{lineage_screen}} instead, which is built for that and
+judges each lineage against the diversity of all the others.
+}
+
 \section{Flags}{
 
 \code{flags} is a character vector of short tags you can filter on. The ones

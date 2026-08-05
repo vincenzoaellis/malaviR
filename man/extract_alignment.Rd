@@ -18,7 +18,7 @@ the whole alignment) or one or more of \code{"Plasmodium"},
 \code{"Haemoproteus"}, \code{"Leucocytozoon"}, and \code{"other"}.}
 }
 \value{
-A \code{DNAbin} alignment, optionally subset by genus.
+A matrix \code{DNAbin} alignment, optionally subset by genus.
 }
 \description{
 Returns the aligned MalAvi cytochrome \emph{b} sequences from the database
@@ -33,10 +33,19 @@ prefix is treated as \code{"other"}. Use \code{genus} to subset the alignment
 to one or more genera. Note that some tip labels also carry a morphological
 species name appended after the lineage code (e.g.
 \code{"H_COLL2_Haemoproteus_pallidus"}).
+
+The alignment is a \strong{matrix} \code{DNAbin} (sequences in rows, alignment
+columns in columns), not a list of sequences. So use \code{nrow()} and
+\code{rownames()} to count and name the sequences: \code{length()} returns the
+number of matrix cells (sequences times sites) and \code{names()} returns
+\code{NULL}. Subset sequences with \code{aln[i, ]} and sites with
+\code{aln[, j]}.
 }
 \examples{
 aln <- extract_alignment()
-dim(aln)
+dim(aln)                  # sequences x sites
+nrow(aln)                 # number of sequences (not length(aln))
+head(rownames(aln))       # sequence names (not names(aln))
 plas <- extract_alignment(genus = "Plasmodium")
 }
 \seealso{

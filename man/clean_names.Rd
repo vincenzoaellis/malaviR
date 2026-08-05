@@ -19,6 +19,20 @@ the parasite genus (\code{P}/\code{H}/\code{L} expanded to
 }
 \value{
 A character vector, or a \code{data.frame} when \code{keep.genus = TRUE}.
+
+  Only the \code{P}/\code{H}/\code{L} prefixes are expanded to genus names; any
+  other prefix is returned as-is, because MalAvi does use others (lineages whose
+  \code{GENUS_NAME} is recorded as \code{"N/A"} carry an \code{N_} prefix, which
+  is a missing genus rather than a genus called \code{N} -- see
+  \code{\link{malavi_issues}}).
+
+  A name with no underscore has no genus prefix to read, so with
+  \code{keep.genus = TRUE} its genus is \code{NA} and a warning is raised. This
+  matters because such names do occur in practice -- a bare GenBank accession
+  mixed in with alignment labels, for instance -- and returning the accession
+  itself as the parasite genus would be a plausible-looking wrong value. The
+  lineage name is still returned unchanged, since a name with no prefix is
+  already in the form the tables use.
 }
 \description{
 MalAvi alignment tip labels carry a parasite-genus prefix (e.g.
@@ -32,4 +46,7 @@ the cleaned name.
 \examples{
 clean_names(c("H_COLL2_Haemoproteus_pallidus", "P_GRW04_Plasmodium_relictum", "L_CIAE02"))
 clean_names(c("H_COLL2_Haemoproteus_pallidus", "L_CIAE02"), keep.genus = TRUE)
+
+## a name with no genus prefix gets an NA genus, not a made-up one
+clean_names(c("H_COLL2", "GU085191"), keep.genus = TRUE)
 }

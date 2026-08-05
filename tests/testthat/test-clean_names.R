@@ -17,3 +17,19 @@ test_that("clean_names handles mixed-length labels without recycling errors", {
   labs <- c("L_CIAE02", "H_COLL2_Haemoproteus_pallidus", "P_SGS1")
   expect_equal(clean_names(labs), c("CIAE02", "COLL2", "SGS1"))
 })
+
+test_that("clean_names gives an NA genus, and warns, for names with no prefix", {
+  ## a bare accession used to come back as its own parasite genus, which is a
+  ## wrong value that looks plausible
+  labs <- c("H_COLL2", "GU085191")
+  expect_warning(out <- clean_names(labs, keep.genus = TRUE), "no '_'")
+  expect_equal(out$parasiteGenus, c("Haemoproteus", NA))
+  ## the lineage name is still returned: a name with no prefix is already clean
+  expect_equal(out$Lineage_Name, c("COLL2", "GU085191"))
+})
+
+test_that("clean_names does not warn when every name has a prefix", {
+  expect_silent(clean_names(c("H_COLL2", "P_SGS1"), keep.genus = TRUE))
+  ## and the default path never warns, since it reports no genus
+  expect_silent(clean_names(c("H_COLL2", "GU085191")))
+})

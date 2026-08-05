@@ -63,3 +63,22 @@ test_that("overlap method collapses a partial into a more complete sequence", {
   expect_identical(res$dropped, "partial")
   expect_equal(nrow(res$alignment_clean), 2)
 })
+
+test_that("clean_alignment defaults to the bundled alignment like synonymy_report", {
+  ## the two functions previously disagreed: one required an alignment, the
+  ## other fetched it
+  res <- clean_alignment(method = "strict")
+  expect_s3_class(res, "malavi_alignment_clean")
+  expect_true(length(res$kept) > 0)
+  expect_equal(attr(res, "malavi_meta")$malavi_version, malavi_version())
+
+  ## same answer as passing the bundled alignment explicitly
+  explicit <- clean_alignment(extract_alignment(), method = "strict")
+  expect_identical(res$kept, explicit$kept)
+  expect_identical(res$dropped, explicit$dropped)
+})
+
+test_that("clean_alignment does not claim a MalAvi version for a supplied alignment", {
+  res <- clean_alignment(make_alignment())
+  expect_true(is.na(attr(res, "malavi_meta")$malavi_version))
+})

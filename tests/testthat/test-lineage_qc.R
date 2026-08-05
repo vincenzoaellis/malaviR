@@ -211,3 +211,26 @@ test_that("lineage_qc rejects unsupported genetic codes", {
   expect_error(lineage_qc("atgtttgggccc", make_ref(), genetic_code = 1),
                "genetic_code = 4")
 })
+
+test_that("a lineage already in the reference always matches itself (documented caveat)", {
+  ## ?lineage_qc warns that screening a lineage that is in MalAvi is silently
+  ## uninformative, because the lineage is in its own reference. Lock that
+  ## behavior down so the documentation cannot drift from it.
+  aln <- extract_alignment()
+  ## SGS1's alignment name carries a morphospecies suffix, so match on the
+  ## cleaned lineage rather than assuming the two-token form
+  i    <- which(clean_names(rownames(aln)) == "SGS1")
+  expect_length(i, 1)
+  name  <- rownames(aln)[i]
+  query <- paste(as.character(aln[i, ]), collapse = "")
+
+  qc <- lineage_qc(query)
+  expect_equal(qc$call, "known_lineage")
+  expect_equal(qc$summary$nearest_lineage, name)
+  expect_equal(qc$summary$nearest_distance, 0)
+
+  ## holding it out is what makes the screen informative: the nearest lineage
+  ## is now some other sequence
+  loo <- lineage_qc(query, reference = aln[-i, ])
+  expect_false(loo$summary$nearest_lineage == name)
+})

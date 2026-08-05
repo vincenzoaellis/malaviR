@@ -12,16 +12,25 @@
 #' species name appended after the lineage code (e.g.
 #' \code{"H_COLL2_Haemoproteus_pallidus"}).
 #'
+#' The alignment is a \strong{matrix} \code{DNAbin} (sequences in rows, alignment
+#' columns in columns), not a list of sequences. So use \code{nrow()} and
+#' \code{rownames()} to count and name the sequences: \code{length()} returns the
+#' number of matrix cells (sequences times sites) and \code{names()} returns
+#' \code{NULL}. Subset sequences with \code{aln[i, ]} and sites with
+#' \code{aln[, j]}.
+#'
 #' @param version MalAvi release to read, as a date string (e.g.
 #'   \code{"2026-03-23"}) or \code{"latest"} (default).
 #' @param genus Parasite genus/genera to return. Either \code{"all"} (default,
 #'   the whole alignment) or one or more of \code{"Plasmodium"},
 #'   \code{"Haemoproteus"}, \code{"Leucocytozoon"}, and \code{"other"}.
-#' @return A \code{DNAbin} alignment, optionally subset by genus.
+#' @return A matrix \code{DNAbin} alignment, optionally subset by genus.
 #' @seealso \code{\link{extract_table}}, \code{\link{clean_alignment}}
 #' @examples
 #' aln <- extract_alignment()
-#' dim(aln)
+#' dim(aln)                  # sequences x sites
+#' nrow(aln)                 # number of sequences (not length(aln))
+#' head(rownames(aln))       # sequence names (not names(aln))
 #' plas <- extract_alignment(genus = "Plasmodium")
 #' @export
 extract_alignment <- function(version = "latest",
