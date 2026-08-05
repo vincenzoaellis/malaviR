@@ -11,8 +11,10 @@ malavi_issues(version = "latest")
 (default).}
 }
 \value{
-The issue text, invisibly, as a character vector. Called for the
-  report it prints.
+Invisibly, a two-column \code{data.frame} with the \code{title} and
+  \code{text} of each issue found, in the order printed. Called mainly for the
+  report it prints; the return value exists so the website can render the same
+  list from the same source rather than repeating it in HTML.
 }
 \description{
 Prints the list of known problems in the MalAvi database itself, as

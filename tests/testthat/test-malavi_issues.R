@@ -7,9 +7,10 @@ test_that("malavi_issues prints a heading naming the release, and nothing else",
 })
 
 test_that("the four issues recorded for the bundled release are still found", {
-  res <- suppressWarnings({ capture.output(x <- malavi_issues()); x })
-  expect_type(res, "character")
-  expect_equal(length(res), 4)
+  capture.output(res <- malavi_issues())
+  expect_s3_class(res, "data.frame")
+  expect_named(res, c("title", "text"))
+  expect_equal(nrow(res), 4)
 })
 
 test_that("the text is derived from the release, not stored", {
@@ -17,7 +18,7 @@ test_that("the text is derived from the release, not stored", {
   ## written from what the check found in the loaded release, so it cannot go
   ## stale the way hard-coded text would.
   capture.output(res <- malavi_issues())
-  txt <- paste(res, collapse = " ")
+  txt <- paste(res$text, collapse = " ")
 
   expect_match(txt, "L_MEAPI23 has the Leucocytozoon prefix \\(L_\\) in the alignment")
   expect_match(txt, "but in the Grand Lineage Summary table it is listed as Plasmodium")
@@ -35,7 +36,7 @@ test_that("the counts in the prose match the data, not a remembered number", {
   n_no_gen <- length(unique(gls$LINEAGE_NAME[!is.na(gls$GENUS_NAME) &
                                                gls$GENUS_NAME == "N/A"]))
   capture.output(res <- malavi_issues())
-  expect_match(res[2], paste0("^", n_no_gen, " lineages"))
+  expect_match(res$text[2], paste0("^", n_no_gen, " lineages"))
 })
 
 test_that("the report carries no registry bookkeeping", {

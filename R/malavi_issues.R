@@ -175,8 +175,10 @@
 #'
 #' @param version MalAvi release to report on; a date string or \code{"latest"}
 #'   (default).
-#' @return The issue text, invisibly, as a character vector. Called for the
-#'   report it prints.
+#' @return Invisibly, a two-column \code{data.frame} with the \code{title} and
+#'   \code{text} of each issue found, in the order printed. Called mainly for the
+#'   report it prints; the return value exists so the website can render the same
+#'   list from the same source rather than repeating it in HTML.
 #' @seealso \code{\link{extract_table}}, \code{\link{extract_alignment}}
 #' @examples
 #' malavi_issues()
@@ -187,8 +189,9 @@ malavi_issues <- function(version = "latest") {
   cat("Known issues in the current MalAvi data release; MalAvi version ",
       resolved, "\n\n", sep = "")
 
-  ctx   <- .malavi_issue_context(version)
-  found <- character(0)
+  ctx    <- .malavi_issue_context(version)
+  titles <- character(0)
+  texts  <- character(0)
 
   for (issue in .malavi_issue_registry()) {
     affected <- unique(as.character(issue$check(ctx)))
@@ -196,15 +199,16 @@ malavi_issues <- function(version = "latest") {
     ## rather than printing it as resolved.
     if (length(affected) == 0) next
 
-    text  <- issue$describe(affected, ctx)
-    found <- c(found, text)
+    text   <- issue$describe(affected, ctx)
+    titles <- c(titles, issue$title)
+    texts  <- c(texts, text)
 
     cat(issue$title, "\n", sep = "")
     writeLines(paste0("   ", strwrap(text, width = 74)))
     cat("\n")
   }
 
-  if (length(found) == 0) cat("No known issues were found in this release.\n")
+  if (length(texts) == 0) cat("No known issues were found in this release.\n")
 
-  invisible(found)
+  invisible(data.frame(title = titles, text = texts, stringsAsFactors = FALSE))
 }
