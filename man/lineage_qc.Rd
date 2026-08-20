@@ -145,11 +145,15 @@ you may see:
   \item{\code{contains_stop_codon}}{translation (frame 1, genetic code 4)
     contains a stop codon -- a strong sign of an error or wrong frame.}
   \item{\code{possible_frame_shift_check_padding}}{the query has stop codons in
-    frame 1 but none in frame 2 or 3, so it is probably a short amplicon padded
-    on the wrong end rather than an aberrant sequence. The other warnings on
-    such a query (divergence, chimera, nonsynonymous counts) are artifacts of
-    the shift; re-place the sequence in the 479 bp frame (see
-    \code{\link{frame_to_malavi}}) and screen it again.}
+    frame 1 but none in frame 2 or 3, so the reading frame is shifted. Two
+    causes produce this and the flag cannot separate them: a short amplicon
+    padded on the wrong end (a handling artifact -- the sequence is fine and
+    only needs re-placing), or an indel (a sequencing error -- the sequence
+    needs re-reading). The other warnings on such a query (divergence,
+    chimera, nonsynonymous counts) are artifacts of the shift either way;
+    re-place the sequence in the 479 bp frame (see
+    \code{\link{frame_to_malavi}}) and screen it again. Stop codons that
+    survive correct placement point to an indel.}
   \item{\code{exact_match_to_known_lineage}, \code{near_known_lineage},
     \code{moderately_divergent_from_known_lineages},
     \code{highly_divergent_from_known_lineages}}{how far the query sits from the

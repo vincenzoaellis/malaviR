@@ -127,11 +127,15 @@ build_malavi_site_profile <- function(reference = NULL, version = "latest",
 #'   \item{\code{contains_stop_codon}}{translation (frame 1, genetic code 4)
 #'     contains a stop codon -- a strong sign of an error or wrong frame.}
 #'   \item{\code{possible_frame_shift_check_padding}}{the query has stop codons in
-#'     frame 1 but none in frame 2 or 3, so it is probably a short amplicon padded
-#'     on the wrong end rather than an aberrant sequence. The other warnings on
-#'     such a query (divergence, chimera, nonsynonymous counts) are artifacts of
-#'     the shift; re-place the sequence in the 479 bp frame (see
-#'     \code{\link{frame_to_malavi}}) and screen it again.}
+#'     frame 1 but none in frame 2 or 3, so the reading frame is shifted. Two
+#'     causes produce this and the flag cannot separate them: a short amplicon
+#'     padded on the wrong end (a handling artifact -- the sequence is fine and
+#'     only needs re-placing), or an indel (a sequencing error -- the sequence
+#'     needs re-reading). The other warnings on such a query (divergence,
+#'     chimera, nonsynonymous counts) are artifacts of the shift either way;
+#'     re-place the sequence in the 479 bp frame (see
+#'     \code{\link{frame_to_malavi}}) and screen it again. Stop codons that
+#'     survive correct placement point to an indel.}
 #'   \item{\code{exact_match_to_known_lineage}, \code{near_known_lineage},
 #'     \code{moderately_divergent_from_known_lineages},
 #'     \code{highly_divergent_from_known_lineages}}{how far the query sits from the
@@ -316,10 +320,13 @@ lineage_qc <- function(query, reference = NULL, site_profile = NULL,
         "The query translates with ", n_stop_codons,
         " stop codon(s) in frame 1, but is stop-free in frame ",
         paste(clean_frames, collapse = " and "),
-        ". This usually means a short amplicon was padded on the wrong end ",
-        "rather than a genuinely aberrant sequence. Check that the sequence is ",
-        "placed in the MalAvi 479 bp frame before treating the other warnings ",
-        "as biological (see frame_to_malavi)."
+        ". Two things produce this and the test cannot tell them apart. ",
+        "Either a short amplicon was padded on the wrong end -- a handling ",
+        "artifact, and the sequence itself is fine -- or there is an indel ",
+        "shifting the reading frame, which is a sequencing error and needs ",
+        "the sequence re-read rather than re-placed. Check that the sequence ",
+        "is placed in the MalAvi 479 bp frame first (see frame_to_malavi); if ",
+        "the stops persist once it is correctly placed, suspect an indel."
       )
     }
   }

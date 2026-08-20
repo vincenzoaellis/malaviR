@@ -149,9 +149,11 @@ test_that("an AGA/AGG substitution is scored synonymous, not nonsynonymous", {
 
 test_that("lineage_qc flags a likely frame shift when another frame is stop-free", {
   ## A right-length query that is stop-ridden in frame 1 but stop-free in frame 2
-  ## or 3 is almost always a short amplicon padded on the wrong end, not an
-  ## aberrant sequence. Here frames 1 and 2 both carry a stop and frame 3 does
-  ## not, so the diagnosis should name frame 3.
+  ## or 3 has a shifted reading frame. Two causes do that -- a short amplicon
+  ## padded on the wrong end (handling), or an indel (sequencing error) -- and
+  ## this test does not distinguish them because the diagnostic cannot either;
+  ## it only checks that the message names both. Here frames 1 and 2 both carry
+  ## a stop and frame 3 does not, so the diagnosis should name frame 3.
   ##   frame 1: TAA CTA AGG GCC -> *  L R A   (stop)
   ##   frame 2: AAC TAA GGG CC  ->  N *  G    (stop)
   ##   frame 3: ACT AAG GGC C   ->  T K  G    (clean)
@@ -161,6 +163,10 @@ test_that("lineage_qc flags a likely frame shift when another frame is stop-free
   expect_true("possible_frame_shift_check_padding" %in% qc$flags)
   expect_match(qc$message, "frame 3")
   expect_match(qc$message, "padded on the wrong end")
+  ## An indel is one of the commonest faults sent back for resequencing, so the
+  ## message must say the word rather than steering the reader toward the benign
+  ## explanation.
+  expect_match(qc$message, "indel")
 })
 
 test_that("lineage_qc does not claim a frame shift when every frame has a stop", {
