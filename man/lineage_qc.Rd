@@ -144,6 +144,13 @@ you may see:
     \code{invalid_or_disallowed_characters}}{the query is not clean A/C/G/T.}
   \item{\code{contains_stop_codon}}{translation (frame 1, genetic code 4)
     contains a stop codon -- a strong sign of an error or wrong frame.}
+  \item{\code{placed_in_malavi_frame}}{the query was shorter than the 479 bp
+    barcode window and was placed into it before screening, with the uncovered
+    positions scored as unknown rather than as differences. A partial barcode is
+    ordinary -- most MalAvi lineages cover only part of the window -- so this
+    records what was done, not a fault. The message gives the frame position it was
+    placed at. A query that cannot be placed convincingly, or one LONGER than the
+    window, is still \code{invalid_sequence}.}
   \item{\code{possible_frame_shift_check_padding}}{the query has stop codons in
     frame 1 but none in frame 2 or 3, so the reading frame is shifted. Two
     causes produce this and the flag cannot separate them: a short amplicon
@@ -167,8 +174,14 @@ you may see:
     \code{N_second_codon_position_changes_vs_nearest_lineage},
     \code{N_transversions_vs_nearest_lineage}}{unusual mutation types relative
     to the nearest lineage.}
-  \item{\code{possible_chimera_or_mixed_template_pattern}}{the sliding-window
-    screen suggests a mosaic of two parents.}
+  \item{\code{possible_chimera_or_mixed_template_pattern}}{two reference
+    lineages, spliced at one breakpoint, explain the query materially better than
+    any single lineage does -- and those two parents are themselves
+    distinguishable. A heuristic flag for manual review, not a formal
+    recombination test. Calibrated against 200 real lineages and 200 synthetic
+    chimeras: about 91% of true chimeras caught at about 2% false positives. Before
+    version 1.1.0 this fired on 23% of ordinary lineages and was in effect a
+    divergence measure; see NEWS.md.}
 }
 }
 

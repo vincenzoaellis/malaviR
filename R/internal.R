@@ -467,6 +467,11 @@
 ## the most-complete match wins: a real exact match is never displaced by an
 ## N-padded one, while a uniquely-matching partial entry (the only candidate at
 ## its distance) still wins because it has no competitor to lose the tie to.
+## Minimum overlap before a reference's mismatch RATE is trusted for ranking. 92 of the
+## 5,365 sequences in the bundled alignment fall below it (1.7%); the median overlap is 478.
+.QC_MIN_COMPARABLE <- 300L
+
+
 .qc_nearest <- function(qcode, refcode, ref_names, top_n = 5L) {
   n <- nrow(refcode)
   L <- ncol(refcode)
@@ -475,7 +480,27 @@
   mism <- both_known & (refcode != qmat)           # disagreements among those
   distance <- rowSums(mism)
   n_comparable <- rowSums(both_known)              # positions actually compared
-  ord <- order(distance, -n_comparable)            # ties -> most-complete match wins
+
+  ## Rank by RATE of mismatch, not by count.
+  ##
+  ## Ordering on the raw count lets a reference that overlaps the query in few positions
+  ## win simply by having less to disagree over. Measured on a real submission
+  ## (2026-08-20): a candidate lineage was reported nearest to a reference with 23
+  ## mismatches over only 133 comparable positions -- 82.7% identity, and that reference is
+  ## the least-covered sequence in the bundled alignment. Its true nearest relative had 38
+  ## mismatches over 477 positions: 92.0% identity, and the clade the lineage belongs to.
+  ## Reporting the first as "nearest" pointed a curator at the wrong genus.
+  ##
+  ## An exact match still wins whatever it covers: `exact_match_to_known_lineage` is
+  ## decided from `distance[1]`, and never reporting a known lineage as new outranks a
+  ## tidier neighbour list. Below that, references covering less than
+  ## `.QC_MIN_COMPARABLE` of the query sort after those that cover more, so a handful of
+  ## overlapping positions cannot outrank a full-length relative; they are ordered, not
+  ## dropped, and `n_comparable` is returned so the caller can see why a match is weak.
+  exact <- as.integer(distance > 0L)
+  thin  <- as.integer(distance > 0L & n_comparable < .QC_MIN_COMPARABLE)
+  rate  <- ifelse(n_comparable > 0L, distance / pmax(n_comparable, 1L), Inf)
+  ord <- order(exact, thin, rate, -n_comparable)
   ord <- ord[seq_len(min(top_n, n))]
   data.frame(lineage = ref_names[ord], distance = distance[ord],
              n_comparable = n_comparable[ord], index = ord,
@@ -710,7 +735,13 @@
 
     ## sliding-window chimera screen
     chimera_window = 120, chimera_step = 20,
-    chimera_delta_threshold = 3, chimera_min_parent_switches = 2,
+    ## Raised from 3 to 8 on 2026-08-20, and joined by a parent-distance guard. Calibrated
+    ## on 200 real lineages (leave-one-out) and 200 synthetic chimeras: 91.5% of true
+    ## chimeras caught at 2.0% false positives, against 23.2% false positives before.
+    ## See the note above .qc_detect_chimera. chimera_min_parent_switches is retained and
+    ## reported but no longer takes part in the call: 98.4% of ordinary lineages met it.
+    chimera_delta_threshold = 8, chimera_min_parent_switches = 2,
+    chimera_min_parent_distance = 5, chimera_min_segment = 60,
 
     ## final-score cutoffs that map the score to a call
     pass_score = 0.85, review_score = 0.60, strong_warning_score = 0.35
@@ -811,47 +842,160 @@
              stringsAsFactors = FALSE)
 }
 
-## Crude sliding-window chimera screen. For each window along the barcode, find
-## the nearest reference lineage; count how often that nearest lineage switches
-## from window to window, and compare the best single full-length parent with a
-## rough two-parent mosaic distance. This is a heuristic flag for manual review,
-## NOT a formal recombination test.
+## Two-parent breakpoint chimera screen.
+##
+## For every breakpoint b, the best two-parent explanation of the query is
+##   min_A mismatches(query[1..b], A) + min_B mismatches(query[b+1..L], B),
+## computed for all references at once from row-wise cumulative sums. `chimera_delta` is
+## how much better that is than the best single parent: the evidence that no one lineage
+## explains the query but two do.
+##
+## WHAT THIS REPLACED, AND WHY (2026-08-20). The previous screen counted how often the
+## nearest lineage changed between overlapping 120 bp windows, and compared the best single
+## parent against a rescaled sum of per-window distances. Measured by leave-one-out over the
+## release, it called **23.2% of ordinary lineages** possible chimeras. Two reasons:
+##
+##   * `parent_switches >= 2` was met by 98.4% of ordinary lineages. With a median of 1 bp
+##     to the nearest relative, which lineage wins any given window is close to arbitrary,
+##     so the term excluded almost nothing.
+##   * A 120 bp window nearly always finds some lineage matching it exactly, so the
+##     approximate two-parent distance sat near zero and `chimera_delta` collapsed to the
+##     distance to the nearest single lineage. The call was a **divergence** measure wearing
+##     a chimera label -- and divergence is the one property a genuinely new lineage has.
+##
+## Calibrated against labelled data rather than intuition (`data-raw/chimera_v2_eval.R`):
+## 200 real lineages leave-one-out as negatives, 200 synthetic chimeras spliced from real
+## lineages with both parents left in the reference as positives. Negatives have median
+## delta 1 (95th percentile 4); real chimeras median 18. At the shipped threshold of 8:
+## **91.5% of true chimeras caught, 2.0% false positives** -- against 23.2% before.
+##
+## Three guards the old screen lacked, each removing a way to manufacture evidence:
+##   * the two parents must be different lineages;
+##   * each segment must be at least `min_segment` long, so a breakpoint a few bases from an
+##     end cannot be built out of trimming noise;
+##   * the parents must differ from EACH OTHER by `min_parent_distance` over the positions
+##     the query defines -- alternating between two lineages 1 bp apart is not evidence;
+##   * references must cover most of the query, so a thinly covered one cannot win by having
+##     little to disagree over (the same failure fixed in .qc_nearest).
+##
+## Still a heuristic flag for manual review, NOT a formal recombination test.
 .qc_detect_chimera <- function(qcode, refcode, ref_names,
-                               window = 120L, step = 20L, top_n = 1L) {
+                               window = 120L, step = 20L, top_n = 1L,
+                               min_segment = 60L, min_cover = 0.9) {
   L <- length(qcode)
-  starts <- seq(1L, L - window + 1L, by = step)
-  if (utils::tail(starts, 1L) + window - 1L < L) {
-    starts <- c(starts, L - window + 1L)        # make sure the tail is covered
-  }
+  n <- nrow(refcode)
 
+  ## per-window nearest lineage, kept for the detail output and for parent_switches.
+  ## It no longer takes part in the call -- see the note above.
+  starts <- seq(1L, L - window + 1L, by = step)
+  if (utils::tail(starts, 1L) + window - 1L < L) starts <- c(starts, L - window + 1L)
   win <- lapply(starts, function(s) {
     cols <- s:(s + window - 1L)
-    nearest <- .qc_nearest(qcode[cols], refcode[, cols, drop = FALSE],
-                           ref_names, top_n = top_n)
+    nearest <- .qc_nearest(qcode[cols], refcode[, cols, drop = FALSE], ref_names,
+                           top_n = top_n)
     data.frame(window_start = s, window_end = s + window - 1L,
                nearest_lineage = nearest$lineage[1],
-               nearest_distance = nearest$distance[1],
-               stringsAsFactors = FALSE)
+               nearest_distance = nearest$distance[1], stringsAsFactors = FALSE)
   })
   windows <- do.call(rbind, win)
-
   parent_switches <- sum(windows$nearest_lineage[-1] !=
                            windows$nearest_lineage[-nrow(windows)])
 
-  full_nearest <- .qc_nearest(qcode, refcode, ref_names, top_n = 5L)
-  best_single_distance <- full_nearest$distance[1]
+  qmat  <- matrix(qcode, n, L, byrow = TRUE)
+  known <- (refcode > 0L) & (qmat > 0L)
+  mism  <- known & (refcode != qmat)
 
-  ## rough two-parent mosaic: sum the best per-window distances, rescaled to the
-  ## full barcode length (windows overlap, hence the scaling). Intentionally
-  ## approximate -- see the "future refinements" note in the QC roadmap.
-  best_window_distance_sum <- sum(windows$nearest_distance)
-  approx_two_parent <- best_window_distance_sum *
-    (L / (nrow(windows) * window))
-  chimera_delta <- best_single_distance - approx_two_parent
+  q_known <- sum(qcode > 0L)
+  keep <- rowSums(known) >= min_cover * q_known
+  empty <- list(windows = windows, best_single_lineage = NA_character_,
+                best_single_distance = NA_integer_, parent_switches = parent_switches,
+                approximate_two_parent_distance = NA_real_, chimera_delta = 0,
+                breakpoint = NA_integer_, parent_a = NA_character_,
+                parent_b = NA_character_, parent_distance = NA_integer_)
+  if (sum(keep) < 2L || L < 2L * min_segment) return(empty)
 
-  list(windows = windows, best_single_lineage = full_nearest$lineage[1],
-       best_single_distance = best_single_distance,
+  mism <- mism[keep, , drop = FALSE]
+  refc <- refcode[keep, , drop = FALSE]
+  rn   <- ref_names[keep]
+
+  Pm  <- t(apply(mism, 1L, cumsum))          # mismatches in 1..b, per reference
+  tot <- Pm[, L]
+  d1  <- min(tot)
+  a1  <- rn[which.min(tot)]
+
+  bs   <- seq.int(min_segment, L - min_segment)
+  pre  <- Pm[, bs, drop = FALSE]
+  post <- tot - pre
+  i_pre  <- apply(pre,  2L, which.min)
+  i_post <- apply(post, 2L, which.min)
+  d2 <- pre[cbind(i_pre, seq_along(bs))] + post[cbind(i_post, seq_along(bs))]
+  d2[i_pre == i_post] <- Inf                 # one parent is not a mosaic
+  if (!any(is.finite(d2))) {
+    empty$best_single_lineage <- a1; empty$best_single_distance <- d1
+    return(empty)
+  }
+
+  k <- which.min(d2)
+  A <- i_pre[k]; B <- i_post[k]
+  both <- refc[A, ] > 0L & refc[B, ] > 0L & qcode > 0L
+  parent_distance <- sum(refc[A, both] != refc[B, both])
+
+  list(windows = windows,
+       best_single_lineage = a1, best_single_distance = d1,
        parent_switches = parent_switches,
-       approximate_two_parent_distance = approx_two_parent,
-       chimera_delta = chimera_delta)
+       approximate_two_parent_distance = d2[k],
+       chimera_delta = d1 - d2[k],
+       breakpoint = bs[k], parent_a = rn[A], parent_b = rn[B],
+       parent_distance = parent_distance)
+}
+
+
+## Consensus code per alignment column: the most frequent unambiguous base, 0 if a
+## column has none. Used only for registration, where comparing against one consensus
+## is both faster and steadier than comparing against every reference in turn.
+.qc_consensus <- function(refcode) {
+  apply(refcode, 2L, function(col) {
+    col <- col[col > 0L]
+    if (!length(col)) return(0L)
+    tab <- tabulate(col, nbins = 4L)
+    as.integer(which.max(tab))
+  })
+}
+
+## Place a query that is SHORTER than the reference frame into that frame.
+##
+## Returns list(offset, rate, n_comparable) for the best placement, or NULL when nothing
+## lands convincingly. `offset` is 0-based: the query's first base sits at frame position
+## offset + 1.
+##
+## Why this exists: 3,340 of MalAvi's 5,368 lineages cover only part of the 479 bp barcode,
+## so a partial query is the ordinary case rather than an error. Before this, lineage_qc()
+## returned `invalid_sequence` for any length but 479 and skipped every sequence metric --
+## including the reading-frame diagnosis that exists to explain exactly that situation,
+## which sat below the gate and was unreachable. A primer-trimmed amplicon is 478 or 476 bp
+## and a one-primer read is shorter still; none of them could be screened at all.
+##
+## Registration slides the query and scores it against the reference consensus, which is
+## what the malavi_rebuild screen does. It refuses rather than guessing: a query that does
+## not land clearly better than random is not silently placed somewhere arbitrary.
+.qc_register <- function(qcode, refcode, max_rate = 0.35, min_comparable = 30L) {
+  L <- ncol(refcode)
+  qlen <- length(qcode)
+  if (qlen >= L) return(NULL)
+
+  consensus <- .qc_consensus(refcode)
+  best <- NULL
+  for (off in 0:(L - qlen)) {
+    idx <- seq.int(off + 1L, off + qlen)
+    ref <- consensus[idx]
+    known <- ref > 0L & qcode > 0L
+    n_known <- sum(known)
+    if (n_known < min_comparable) next
+    rate <- sum(ref[known] != qcode[known]) / n_known
+    if (is.null(best) || rate < best$rate) {
+      best <- list(offset = off, rate = rate, n_comparable = n_known)
+    }
+  }
+  if (is.null(best) || best$rate > max_rate) return(NULL)
+  best
 }

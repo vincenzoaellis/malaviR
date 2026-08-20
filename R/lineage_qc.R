@@ -126,6 +126,13 @@ build_malavi_site_profile <- function(reference = NULL, version = "latest",
 #'     \code{invalid_or_disallowed_characters}}{the query is not clean A/C/G/T.}
 #'   \item{\code{contains_stop_codon}}{translation (frame 1, genetic code 4)
 #'     contains a stop codon -- a strong sign of an error or wrong frame.}
+#'   \item{\code{placed_in_malavi_frame}}{the query was shorter than the 479 bp
+#'     barcode window and was placed into it before screening, with the uncovered
+#'     positions scored as unknown rather than as differences. A partial barcode is
+#'     ordinary -- most MalAvi lineages cover only part of the window -- so this
+#'     records what was done, not a fault. The message gives the frame position it was
+#'     placed at. A query that cannot be placed convincingly, or one LONGER than the
+#'     window, is still \code{invalid_sequence}.}
 #'   \item{\code{possible_frame_shift_check_padding}}{the query has stop codons in
 #'     frame 1 but none in frame 2 or 3, so the reading frame is shifted. Two
 #'     causes produce this and the flag cannot separate them: a short amplicon
@@ -149,8 +156,14 @@ build_malavi_site_profile <- function(reference = NULL, version = "latest",
 #'     \code{N_second_codon_position_changes_vs_nearest_lineage},
 #'     \code{N_transversions_vs_nearest_lineage}}{unusual mutation types relative
 #'     to the nearest lineage.}
-#'   \item{\code{possible_chimera_or_mixed_template_pattern}}{the sliding-window
-#'     screen suggests a mosaic of two parents.}
+#'   \item{\code{possible_chimera_or_mixed_template_pattern}}{two reference
+#'     lineages, spliced at one breakpoint, explain the query materially better than
+#'     any single lineage does -- and those two parents are themselves
+#'     distinguishable. A heuristic flag for manual review, not a formal
+#'     recombination test. Calibrated against 200 real lineages and 200 synthetic
+#'     chimeras: about 91% of true chimeras caught at about 2% false positives. Before
+#'     version 1.1.0 this fired on 23% of ordinary lineages and was in effect a
+#'     divergence measure; see NEWS.md.}
 #' }
 #'
 #' @param query A single candidate barcode as a character string. Whitespace is
@@ -264,6 +277,7 @@ lineage_qc <- function(query, reference = NULL, site_profile = NULL,
 
   flags <- character(0)
   query_length <- nchar(query)
+  placement_message <- NULL
 
   ## ---- basic sequence validation ----
   if (query_length != expected_length) {
@@ -276,7 +290,40 @@ lineage_qc <- function(query, reference = NULL, site_profile = NULL,
   if (grepl("N", query, fixed = TRUE)) flags <- c(flags, "contains_N")
   if (grepl("[RYSWKMBDHV]", query))    flags <- c(flags, "contains_ambiguity_codes")
 
-  ## If the length does not match the reference, the per-site and per-codon
+  ## A query SHORTER than the frame is placed into it and screened in full.
+  ##
+  ## A partial barcode is the ordinary case, not an error: 3,340 of MalAvi's 5,368
+  ## lineages cover only part of the 479 bp window, and a primer-trimmed amplicon (478 or
+  ## 476 bp) or a one-primer read is exactly what a submitter sends. Until 2026-08-20 any
+  ## length but 479 returned `invalid_sequence` and skipped every sequence metric -- and
+  ## the reading-frame diagnosis written to explain that very situation sat below the gate,
+  ## unreachable. A curator screening a 478 bp candidate was told only "not 479", with no
+  ## distance to anything.
+  ##
+  ## The padded positions are scored as unknown, exactly as gaps in a reference are, so
+  ## nothing is invented: the metrics simply cover fewer positions, and `n_comparable`
+  ## records how many. Registration refuses rather than guessing when the query does not
+  ## land convincingly, and a query LONGER than the frame is still returned invalid --
+  ## placing it would mean discarding real bases, which is a curator's decision.
+  if (query_length < nrow(site_profile)) {
+    placement <- .qc_register(.qc_code_vec(qchars), refcode)
+    if (!is.null(placement)) {
+      lead <- placement$offset
+      trail <- nrow(site_profile) - query_length - lead
+      qchars <- c(rep("-", lead), qchars, rep("-", trail))
+      query  <- paste(qchars, collapse = "")
+      flags  <- c(flags, "placed_in_malavi_frame")
+      placement_message <- paste0(
+        "The query is ", query_length, " bp and was placed at frame position ",
+        lead + 1L, " of the ", nrow(site_profile), " bp MalAvi window (",
+        lead, " position(s) before it, ", trail, " after) before screening. ",
+        "Those positions are scored as unknown, not as differences. A partial ",
+        "barcode is ordinary -- most MalAvi lineages are one.")
+      query_length <- nchar(query)
+    }
+  }
+
+  ## If the length still does not match the reference, the per-site and per-codon
   ## metrics cannot be computed. Return a useful invalid-sequence result.
   if (query_length != nrow(site_profile)) {
     out <- list(
@@ -379,9 +426,17 @@ lineage_qc <- function(query, reference = NULL, site_profile = NULL,
   if (chimera_check) {
     chimera <- .qc_detect_chimera(qcode, refcode, ref_names,
                                   window = settings$chimera_window,
-                                  step = settings$chimera_step)
-    chimera_flagged <- chimera$chimera_delta >= settings$chimera_delta_threshold &&
-      chimera$parent_switches >= settings$chimera_min_parent_switches
+                                  step = settings$chimera_step,
+                                  min_segment = settings$chimera_min_segment)
+    ## Two conditions, both meaningful. The delta says two parents explain the query
+    ## materially better than any one does; the parent distance says those two parents are
+    ## actually distinguishable, so that "switching" between them means something. The old
+    ## second condition (parent_switches >= 2) was met by 98.4% of ordinary lineages and
+    ## excluded almost nothing -- see the note above .qc_detect_chimera.
+    chimera_flagged <- isTRUE(
+      chimera$chimera_delta >= settings$chimera_delta_threshold &&
+        !is.na(chimera$parent_distance) &&
+        chimera$parent_distance >= settings$chimera_min_parent_distance)
     if (chimera_flagged) flags <- c(flags, "possible_chimera_or_mixed_template_pattern")
   }
 
@@ -436,7 +491,11 @@ lineage_qc <- function(query, reference = NULL, site_profile = NULL,
                  flags = unique(flags), counts = counts,
                  nearest = nearest, mutations = mutations)
   ## only present when the frame diagnosis above found a stop-free frame
-  if (!is.null(frame_message)) result$message <- frame_message
+  ## Both messages can apply: a short query that was placed into the frame may also
+  ## translate with stops. Placement comes first because it explains the shape of
+  ## everything else in the result.
+  msgs <- c(placement_message, frame_message)
+  if (length(msgs)) result$message <- paste(msgs, collapse = " ")
   if (details) {
     result$translation <- list(amino_acid_sequence = paste(aa, collapse = ""),
                                n_stop_codons = n_stop_codons,

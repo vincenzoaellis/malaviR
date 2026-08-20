@@ -240,3 +240,79 @@ test_that("a lineage already in the reference always matches itself (documented 
   loo <- lineage_qc(query, reference = aln[-i, ])
   expect_false(loo$summary$nearest_lineage == name)
 })
+
+test_that("the nearest lineage is ranked by rate of mismatch, not by count", {
+  ## Measured on a real submission, 2026-08-20: a candidate was reported nearest to a
+  ## reference with 23 mismatches over only 133 comparable positions (82.7% identity, and
+  ## the least-covered sequence in the alignment), ahead of its true relative at 38
+  ## mismatches over 477 (92.0%). That named a Plasmodium as the closest relative of a
+  ## Haemoproteus. Ranking on the raw count is what did it.
+  refcode <- rbind(
+    ## a thinly covered reference: only 150 positions known, 20 of them disagreeing
+    c(rep(1L, 130), rep(2L, 20), rep(0L, 329)),
+    ## a fully covered reference: all 479 known, 40 disagreeing
+    c(rep(1L, 439), rep(2L, 40))
+  )
+  qcode <- rep(1L, 479)
+  got <- malaviR:::.qc_nearest(qcode, refcode, c("thin", "full"), top_n = 2L)
+
+  expect_equal(got$lineage[1], "full")
+  expect_gt(got$distance[1], got$distance[2])          # more mismatches, still nearer
+  expect_gt(got$n_comparable[1], got$n_comparable[2])
+})
+
+test_that("an exact match outranks a better-covered near match", {
+  ## Load-bearing: exact_match_to_known_lineage is decided from distance[1], and never
+  ## reporting a known lineage as new outranks a tidier neighbour list.
+  refcode <- rbind(
+    c(rep(1L, 60), rep(0L, 419)),                      # exact over only 60 positions
+    c(rep(1L, 478), 2L)                                # 1 mismatch over all 479
+  )
+  qcode <- rep(1L, 479)
+  got <- malaviR:::.qc_nearest(qcode, refcode, c("exact_thin", "near_full"), top_n = 2L)
+
+  expect_equal(got$lineage[1], "exact_thin")
+  expect_equal(got$distance[1], 0)
+})
+
+test_that("a partial barcode is placed into the frame and screened, not rejected", {
+  ## Until 2026-08-20 any length but 479 returned invalid_sequence with every metric NA.
+  ## 3,340 of MalAvi's 5,368 lineages cover only part of the window, and a primer-trimmed
+  ## amplicon or a one-primer read is what submitters actually send -- so the function
+  ## could not screen the majority of real submissions. Worse, a partial read of a lineage
+  ## MalAvi ALREADY HOLDS came back invalid rather than as an exact match, which is the
+  ## one outcome lineage_qc exists to prevent.
+  aln  <- extract_alignment()
+  seqs <- toupper(vapply(seq_len(nrow(aln)),
+                         function(i) paste(as.character(aln[i, ]), collapse = ""),
+                         character(1)))
+  full <- seqs[!grepl("[^ACGT]", seqs) & nchar(seqs) == 479L][1]
+  name <- rownames(aln)[which(seqs == full)[1]]
+
+  for (part in list(substr(full, 2, 479),    # 478 bp, the haem shape
+                    substr(full, 2, 477),    # 476 bp, the leuc shape
+                    substr(full, 1, 300))) { # a forward-primer-only read
+    qc <- lineage_qc(part)
+    expect_true("placed_in_malavi_frame" %in% qc$flags)
+    expect_equal(qc$call, "known_lineage")
+    expect_equal(qc$summary$nearest_distance, 0)
+    expect_equal(qc$summary$nearest_lineage, name)
+    expect_match(qc$message, "placed at frame position")
+  }
+})
+
+test_that("a sequence that cannot be placed is still invalid_sequence", {
+  ## Registration refuses rather than putting a query somewhere arbitrary.
+  qc <- lineage_qc(paste(rep("ACGT", 30), collapse = ""))
+  expect_equal(qc$call, "invalid_sequence")
+  expect_true(is.na(qc$summary$nearest_distance))
+})
+
+test_that("a query longer than the frame is not placed", {
+  ## Placing it would mean discarding real bases, which is a curator's decision.
+  aln  <- extract_alignment()
+  full <- toupper(paste(as.character(aln[1, ]), collapse = ""))
+  qc <- lineage_qc(paste0(full, "ACGTACGTAC"))
+  expect_equal(qc$call, "invalid_sequence")
+  expect_false("placed_in_malavi_frame" %in% qc$flags)
+})
