@@ -1,7 +1,7 @@
 Package: malaviR
 Type: Package
 Title: An R interface to MalAvi
-Version: 1.1.0
+Version: 1.1.1
 Authors@R: c(
     person("Vincenzo A", "Ellis", email = "vaellis@udel.edu", role = c("aut", "cre")),
     person("Staffan", "Bensch", email = "staffan.bensch@biol.lu.se", role = "aut"),

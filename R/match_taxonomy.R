@@ -187,6 +187,7 @@ match_taxonomy <- function(species = NULL, version = "latest",
   ## 5. family/order-constrained epithet match (recovers genus reassignments and
   ##    gender-agreement changes); only accepted when it resolves to one species
   todo <- which(is.na(ebird) & !generic)
+
   for (i in todo) {
     res <- .epithet_reassign(species[i], family[i], order[i], ref)
     if (!is.na(res$ebird)) {
@@ -210,6 +211,31 @@ match_taxonomy <- function(species = NULL, version = "latest",
 
   match_type[is.na(ebird) & generic]  <- "generic"
   match_type[is.na(ebird) & !generic] <- "none"
+
+  ## The family/order-constrained epithet match (step 5) is the one step that needs
+  ## information about the host beyond its name: it constrains its candidate pool by the
+  ## host's family, falling back to its order, so without them it cannot run at all -- and
+  ## it used to skip in silence. `match_taxonomy()` fetches both from MalAvi when `species`
+  ## is NULL; a caller passing their own vector has to supply them too. Called the second
+  ## way, 173 of MalAvi's own 2,339 host binomials come back "none" that this very function
+  ## resolves when called the first way, and nothing explained the difference. That was
+  ## read once as a missing rule in the function rather than a missing argument in the
+  ## call, so it is worth saying out loud.
+  ##
+  ## Checked here rather than at step 5 deliberately: a name still unresolved at step 5 may
+  ## yet be recovered by the legacy bridge at step 6, and warning earlier fired on names
+  ## that resolved perfectly well.
+  n_none <- sum(match_type == "none")
+  if (n_none > 0 && all(is.na(family)) && all(is.na(order))) {
+    warning(n_none, " name(s) did not resolve, and no `family`/`order` was supplied -- ",
+            "the family/order-constrained epithet match cannot run without them and was ",
+            "skipped, so genus reassignments (e.g. Grus leucogeranus -> Leucogeranus ",
+            "leucogeranus) are reported as unmatched. Either pass family = and order = ",
+            "alongside `species`, or call match_taxonomy() with no arguments to use ",
+            "MalAvi's own host list, which carries them. For MalAvi host names the ",
+            "resolved crosswalk is already shipped as `malaviR::taxonomy`.",
+            call. = FALSE)
+  }
 
   n_legacy <- sum(match_type == "legacy")
   if (n_legacy > 0) {

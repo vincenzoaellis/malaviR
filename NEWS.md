@@ -1,3 +1,18 @@
+# malaviR 1.1.1
+
+`match_taxonomy()` now warns when it is given species names without `family` and `order`.
+
+The family/order-constrained epithet match — the step that recovers genus reassignments
+such as *Grus leucogeranus* to *Leucogeranus leucogeranus* — constrains its candidate pool
+by the host's family, falling back to its order. Without them it cannot run, and it
+previously skipped in silence. Called with a bare vector of names, 173 of MalAvi's own
+2,339 host binomials came back `none` that the same function resolves when called with no
+arguments, and nothing explained the difference.
+
+No matching behaviour changed. Either pass `family =` and `order =` alongside `species`,
+or call `match_taxonomy()` with no arguments to use MalAvi's host list, which carries them.
+For MalAvi host names the resolved crosswalk is already shipped as `malaviR::taxonomy`.
+
 # malaviR 1.1.0
 
 Changes to `lineage_qc()`. All four were found on 2026-08-20 by one real community

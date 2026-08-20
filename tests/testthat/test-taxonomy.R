@@ -118,3 +118,25 @@ test_that("bundled taxonomy dataset has the expected shape", {
   expect_true(all(c("malavi_species", "ebird_species", "ott_name",
                     "order", "family", "match_type") %in% names(taxonomy)))
 })
+
+test_that("match_taxonomy warns when it is asked to resolve names without family/order", {
+  ## The family/order-constrained epithet match cannot run without them and used to skip
+  ## in silence, so 173 of MalAvi's own host names looked unmatched in a hand-rolled call
+  ## while the same function resolves every one of them when called with no arguments.
+  expect_warning(res <- match_taxonomy("Grus leucogeranus"), "family/order")
+  expect_equal(res$key$match_type, "none")
+})
+
+test_that("supplying family and order resolves the reassignment, and does not warn", {
+  expect_silent(res <- match_taxonomy("Grus leucogeranus",
+                                      family = "Gruidae", order = "Gruiformes"))
+  expect_equal(res$key$match_type, "reassigned:family")
+  expect_equal(res$key$ebird_species, "Leucogeranus leucogeranus")
+})
+
+test_that("a name resolved by the legacy bridge does not trigger the warning", {
+  ## REGRESSION: the warning first fired at step 5, before the legacy bridge at step 6 had
+  ## had its turn, so it complained about names that went on to resolve perfectly well.
+  expect_message(res <- match_taxonomy("Icterus chrysocephalus"), "legacy")
+  expect_equal(res$key$match_type, "legacy")
+})
