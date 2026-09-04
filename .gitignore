@@ -25,3 +25,17 @@ code_reporter/
 # malavi_issues() in R/malavi_issues.R, and that list is the only version that
 # should ever reach GitHub, the built package, or the website.
 DATA_ISSUES.md
+
+# Local-only working notes, kept out of git deliberately.
+# LINEAGE_QC_LENGTH_GATE.md says so in its own first line: it names a withdrawn
+# submission, an intake directory carrying a submitter's name, and two reserved
+# lineage names that are not public. The others use release data only but were
+# never chosen for publication. Listed here because they sit in data-raw/ beside
+# tracked files, so a `git add -A` on that directory would sweep them into a
+# commit -- which is exactly how they reached the public remote once. Add paths
+# explicitly when committing in data-raw/.
+data-raw/CHIMERA_SCREEN_SPECIFICITY.md
+data-raw/LINEAGE_QC_LENGTH_GATE.md
+data-raw/TAXONOMY_CROSSWALK_GAPS.md
+data-raw/chimera_leave_one_out.R
+data-raw/chimera_leave_one_out_results.txt

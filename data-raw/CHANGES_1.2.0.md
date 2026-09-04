@@ -1,9 +1,9 @@
-# What changed in malaviR 1.1.2, and why
+# What changed in malaviR 1.1.2 and 1.2.0, and why
 
 A review record for Vincenzo. Every change here came from the independent code and
-biology review of 1.1.1 (commit `e597ac9`) and is one of the eight confirmed bugs in
-section A of that review. Nothing in section B (interpretation) or section C
-(housekeeping) is done yet.
+biology review of 1.1.1 (commit `e597ac9`). Sections 1-5 below are the eight confirmed
+bugs of section A of that review, released as **1.1.2**. Section 6 is review item B1,
+released as **1.2.0**. Section 7 covers the malavi_rebuild site, which carries both.
 
 The per-row taxonomy diff is also in `taxonomy_changes_1.1.2.csv` next to this file,
 with the `ott_name` and `family` columns as well, if you want to work with it in R.
@@ -19,7 +19,7 @@ new <- new.env(); load("data/taxonomy.rda",       envir = new)   # 1.1.2
 i <- which(old$taxonomy$ebird_species != new$taxonomy$ebird_species)
 ```
 
-Commits: `2526152`, `51fcab0`, `02af0b8`, `07e910b`, `da91459`.
+Commits: `2526152`, `51fcab0`, `02af0b8`, `07e910b`, `da91459` (1.1.2), `c154658` (1.2.0).
 `R CMD check` on a clean tarball: 0 errors, 0 warnings, 0 notes.
 
 ---
@@ -222,13 +222,59 @@ README "packges" typo fixed.
 
 ---
 
+---
+
+## 6. Done since (1.2.0): the plausibility score is gone
+
+Review item B1, decided by Vincenzo 2026-09-04: *"the composite score didn't add much
+before and now that we see it is correlated with divergence it really seems useless."*
+
+Removed: `score`, the `exp(-penalty/10)` mapping and its six weights, and the four calls
+that were bands of it (`plausible_new_lineage`, `review`, `strong_warning`,
+`possible_error`). `invalid_or_strong_warning` is renamed `contains_stop_codon`, and
+`no_exact_match` is the new residual.
+
+Kept, and promoted into `summary` as one row per query, so a set of sequences `rbind`s
+into an analysis table: `n_mutations` and its breakdown (`n_nonsynonymous`,
+`n_second_position_changes`, `n_transversions`), how unusual the query's bases are for
+their sites (`n_invariant_site_changes`, `n_bases_never_observed`, `n_rare_site_bases`),
+`n_stop_codons`, `n_comparable`, and `chimera_delta`. `counts` is unchanged for code
+written against the old shape.
+
+## 7. Downstream: the malavi_rebuild site
+
+Both releases are live on the public site. malavi_rebuild consumes the **installed**
+malaviR, so the sequence was: install, run the six export scripts in RUNBOOK §6, publish.
+
+- `ffdefb3` — site data rebuilt on 1.1.2. The ten species corrections are in the
+  published taxonomy table; 31 cells across four tables lost a non-breaking space; the
+  `lineage_qc`, `synonymy` and `ambiguous_pairs` report CSVs are byte-identical.
+- `dd91c88` — the site's curation checker adapted to 1.2.0. It had been skipping
+  `plausible_new_lineage` and reporting everything below it, so with the bands gone it
+  would have silenced every real warning at once. **The one judgment call made on
+  Vincenzo's behalf, and the thing to review**: the rule now lives in
+  `curation/src/malavi_curation/checks.py` as `_substantive_qc_flags()`, and it says a
+  flag earns a curator finding unless it only restates how far the sequence sits from its
+  neighbors (`_QC_FLAGS_DESCRIBING_DISTANCE`) or records what the screen did to it
+  (`_QC_FLAGS_DESCRIBING_PROCESS`). Both are named constants, easy to move. 1189 site
+  tests pass.
+
+Note a deliberate divergence: malavi_rebuild fixed the same overlap bug independently on
+2026-09-02 (its commit `d983877`) with an **absolute 300-position floor**, where malaviR
+uses a **relative 60%-of-query floor**. Nothing calls the other. The site is gatekeeping a
+name assignment and should be strict; the package has to work on partial queries at all.
+The visible effect is that a 180 bp read gets `exact_match_low_coverage` from the site and
+`known_lineage` from `lineage_qc()`.
+
+---
+
 ## Still open
 
-- **Section B of the review** — eight biology and interpretation items. The headline is
-  B1: leave-one-out on 60 curated bundled lineages puts 26% of them in
-  `strong_warning`/`possible_error`, and every lineage more than 20 bp from its nearest
-  neighbor is `possible_error`, so the `lineage_qc()` composite score is effectively a
-  divergence measure rather than a plausibility measure.
+- **The rest of section B** — seven remaining biology and interpretation items (B2-B8):
+  the `allow_ambiguity` penalty is moot now the score is gone, but the pooled-profile
+  "rare base" problem (B3), the chimera sensitivity wording (B4), the unassignable
+  overlap synonymies (B5), the unreported cross-genus identical sequences (B6), the
+  singleton wording in `?lineage_screen` (B7) and the `match_type = "exact"` caveat (B8,
+  partly done) all stand.
 - **Section C** — documentation and NEWS housekeeping, including the 1.1.0 NEWS entry's
   omissions and some stale README numbers.
-- **Downstream**: the malavi_rebuild site carries this crosswalk. See RUNBOOK §6.
