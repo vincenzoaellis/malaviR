@@ -53,9 +53,15 @@ hand-resolved to a current eBird species; these are flagged
 \code{match_type = "manual"}. Remaining names are matched against the eBird
 scientific names, and, failing that, against the IOC, BirdLife, and Howard &
 Moore synonyms carried by clootl (which are then resolved back to the eBird
-name). Because the same synonym string is occasionally shared by more than one
-eBird species, an ambiguous synonym is accepted only for the candidate whose
-own epithet agrees with the host's, never by silently taking the first.
+name). Those synonym columns hold semicolon-joined lists wherever another
+authority splits an eBird species, and every name in such a list is searched;
+a host name found only inside one gets a \code{"-lump"} label (e.g.
+\code{"synonym:BirdLife-lump"}), because eBird then treats that authority's
+species as part of a broader one and the MalAvi host concept is narrower than
+the name it maps to. Because the same synonym string is occasionally shared by
+more than one eBird species, an ambiguous synonym is accepted only for the
+candidate whose own epithet agrees with the host's, never by silently taking
+the first.
 Many MalAvi host names are
 older binomials that no longer match any of those because the genus has since
 been split or the specific epithet re-gendered (e.g. \emph{Anas clypeata} is
@@ -69,7 +75,11 @@ order), accepting the match only when it points to a single eBird species.
 The same-genus step is tried first because a fixed genus is the strongest
 identity signal and is not misled by a mislabeled MalAvi family; the
 family/order constraint then
-guards against epithet collisions between unrelated birds. Names whose epithet
+guards against epithet collisions between unrelated birds. That constraint is
+only as good as MalAvi's family label, which is the least maintained field in
+the release, so a genus-changing match is additionally checked against the
+families clootl files the MalAvi genus in and declined when it falls outside
+them. Names whose epithet
 remains ambiguous are left unmatched rather than guessed. As a last step, host
 names still unmatched are looked up in the hand-curated species key from the
 original \code{malaviR} (which mapped many MalAvi names to corrected
@@ -93,7 +103,14 @@ internet connection or \pkg{clootl} installation is needed at run time. See
 The values differ in how much they should be trusted:
 \describe{
   \item{\code{"exact"}}{the strongest match: the host name is itself a current
-    eBird scientific name. Safe to use as-is.}
+    eBird scientific name. It is a match of \emph{names}, not of species
+    concepts: MalAvi records accrue under the name the original study used, so
+    an old broad name that is still current for a narrower species matches
+    exactly and silently. Of the 19 MalAvi records for \emph{Tyto alba}, 12 are
+    from the New World or Australasia and belong to \emph{T. furcata} or
+    \emph{T. javanica} under the bundled taxonomy. Exact matches need no
+    taxonomic review, but records under a recently split name still need
+    locality checking.}
   \item{\code{"manual"}, \code{"synonym:*"}, \code{"reassigned:*"},
     \code{"legacy"}}{resolved, but by a rule rather than an exact hit -- a
     maintainer override, a recognized synonym, an epithet/genus reassignment, or

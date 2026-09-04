@@ -12,7 +12,13 @@
 #' scientific name directly;
 #' \code{"synonym:IOC"}, \code{"synonym:BirdLife"}, and
 #' \code{"synonym:HowardMoore"} matched via the IOC, BirdLife, or Howard & Moore
-#' names that clootl carries; \code{"reassigned:family"} and
+#' names that clootl carries, and the \code{"-lump"} forms of those three
+#' (\code{"synonym:BirdLife-lump"} and so on) matched a name that the authority
+#' treats as a full species but eBird folds into a broader one -- so the MalAvi
+#' host concept is narrower than the eBird species it maps to;
+#' \code{"reassigned:genus"} matched within the same genus after allowing for
+#' Latin gender agreement (e.g. \emph{Saxicola maura} to \emph{S. maurus});
+#' \code{"reassigned:family"} and
 #' \code{"reassigned:order"} matched by specific epithet (allowing for Latin
 #' gender agreement) within the host's MalAvi family or order, recovering genus
 #' reassignments; \code{"legacy"} matched via the hand-curated key from the
@@ -20,6 +26,18 @@
 #' double-checking); \code{"generic"} are names that cannot map to a single
 #' species (e.g. ending in \dQuote{sp.} or hybrids); and \code{"none"} are
 #' binomials with no match in the bundled taxonomy.
+#'
+#' A name match is not a concept match, and the family/order steps are the ones to
+#' watch. They rest on MalAvi's \code{FAMILY_NAME}, the least maintained field in
+#' the release: where MalAvi files a genus under an old family, the pool becomes
+#' the current membership of that family name and a lone same-epithet bird can win.
+#' Version 1.1.2 corrected eight species that had been matched this way (among them
+#' \emph{Tiaris obscura}, a Peruvian grassquit, to \emph{Akialoa obscura}, an
+#' extinct Hawaiian honeycreeper) and added a guard that declines a genus-changing
+#' match landing outside the families clootl files the MalAvi genus in. The guard
+#' cannot see the cases where clootl has retired the MalAvi genus, or where the
+#' false match is in the right family; those are listed for review in
+#' \code{data-raw/taxonomy_audit.csv} at each rebuild.
 #'
 #' @format A data frame with one row per unique MalAvi host species and the
 #'   following columns:
@@ -31,7 +49,8 @@
 #'   \item{family}{taxonomic family of the matched species, or \code{NA}.}
 #'   \item{match_type}{how the name matched: \code{"manual"}, \code{"exact"},
 #'     \code{"synonym:IOC"}, \code{"synonym:BirdLife"},
-#'     \code{"synonym:HowardMoore"}, \code{"reassigned:family"},
+#'     \code{"synonym:HowardMoore"}, any of those three with a \code{"-lump"}
+#'     suffix, \code{"reassigned:genus"}, \code{"reassigned:family"},
 #'     \code{"reassigned:order"}, \code{"legacy"}, \code{"generic"}, or
 #'     \code{"none"}.}
 #' }

@@ -215,27 +215,69 @@
 .epithet      <- function(x) sub("^[A-Za-z]+ ", "", x)
 .epithet_stem <- function(e) sub("(us|a|um|is|os|on|ii|i|e)$", "", e)
 
-## Match a host name against one of clootl's alternate-authority synonym columns
-## (IOC, then BirdLife, then Howard & Moore). The same synonym string can sit on
-## more than one eBird species (e.g. Howard & Moore "Trochalopteron cachinnans"
-## is carried by both Montecincla cachinnans and M. jerdoni). A plain match()
+## Explode clootl's three alternate-authority synonym columns into one long
+## lookup: one row per (synonym name, eBird species, authority).
+##
+## The columns do not hold one name per cell. When another authority SPLITS an
+## eBird species, clootl records every one of that authority's names in the cell,
+## joined by ";" -- the bundled snapshot has 115 such IOC cells, 302 BirdLife and
+## 86 Howard & Moore. Comparing the cell to a name with == therefore never matched
+## anything inside a joined cell, and 153 MalAvi host names sit in one. Most were
+## caught by the exact step anyway, but nine had to be rescued by a hand-written
+## override that the synonym step should have resolved on its own, and one --
+## Phaethornis baroni, listed by BirdLife under Phaethornis longirostris -- fell
+## through to the family-pool epithet step and came back as Metallura baroni.
+##
+## `lump` records that the name came out of a joined cell, i.e. that the authority
+## recognizes it as a species while eBird folds it into a broader one. That is
+## worth telling the user, because the MalAvi host concept is then narrower than
+## the eBird species it maps to.
+.syn_table <- function(ref) {
+  sources <- c(IOC = "IOC_name", BirdLife = "Birdlife_name", HowardMoore = "H_M_name")
+  parts <- lapply(names(sources), function(label) {
+    values <- ref[[sources[[label]]]]
+    pieces <- strsplit(values, ";", fixed = TRUE)
+    data.frame(
+      synonym  = trimws(unlist(pieces, use.names = FALSE)),
+      ebird    = rep(ref$SCI_NAME, lengths(pieces)),
+      source   = label,
+      ## a name from a cell that listed more than one is a split in that authority
+      lump     = rep(lengths(pieces) > 1L, lengths(pieces)),
+      stringsAsFactors = FALSE
+    )
+  })
+  out <- do.call(rbind, parts)
+  out[!is.na(out$synonym) & nzchar(out$synonym) & out$synonym != "NA", , drop = FALSE]
+}
+
+## Match a host name against clootl's alternate-authority synonyms (IOC, then
+## BirdLife, then Howard & Moore), via the exploded table above. The same synonym
+## string can sit on more than one eBird species (e.g. Howard & Moore
+## "Trochalopteron cachinnans" is carried by both Montecincla cachinnans and
+## M. jerdoni), and splitting the joined cells creates more such cases, not fewer
+## -- BirdLife's "Saxicola torquatus" covers four eBird species. A plain match()
 ## would silently take whichever row comes first, so when a synonym is ambiguous
 ## we keep only the candidate whose own epithet agrees (allowing Latin gender)
 ## with the host's epithet; if that still does not single one out, we decline the
 ## match rather than guess. Returns list(ebird, type); ebird is NA if nothing
-## resolves.
-.syn_resolve <- function(name, ref) {
-  s   <- .epithet_stem(.epithet(name))
-  syn <- c(IOC = "IOC_name", BirdLife = "Birdlife_name", HowardMoore = "H_M_name")
-  for (label in names(syn)) {
-    rows <- which(ref[[syn[label]]] == name)
+## resolves. `syn` is passed in by match_taxonomy() so the table is built once
+## per call rather than once per host name.
+.syn_resolve <- function(name, ref, syn = .syn_table(ref)) {
+  s <- .epithet_stem(.epithet(name))
+  for (label in c("IOC", "BirdLife", "HowardMoore")) {
+    rows <- which(syn$source == label & syn$synonym == name)
     if (length(rows) == 0) next
-    cand <- unique(ref$SCI_NAME[rows])
+    cand <- unique(syn$ebird[rows])
     if (length(cand) > 1) {                       # ambiguous synonym: prefer epithet agreement
       cand <- unique(cand[.epithet_stem(.epithet(cand)) == s])
+      rows <- rows[syn$ebird[rows] %in% cand]
     }
-    if (length(cand) == 1)
-      return(list(ebird = cand, type = paste0("synonym:", label)))
+    if (length(cand) == 1) {
+      ## "-lump" says eBird treats this authority's species as part of a broader
+      ## one, so the MalAvi host concept is narrower than the name it maps to
+      suffix <- if (any(syn$lump[rows])) "-lump" else ""
+      return(list(ebird = cand, type = paste0("synonym:", label, suffix)))
+    }
   }
   list(ebird = NA_character_, type = NA_character_)
 }
@@ -265,9 +307,9 @@
 ## (ambiguity-aware) IOC/BirdLife/Howard & Moore synonyms, then a same-genus
 ## epithet shift, then the family/order-constrained epithet match. Returns
 ## list(ebird, type); ebird is NA if nothing resolves.
-.resolve_name <- function(name, family, order, ref) {
+.resolve_name <- function(name, family, order, ref, syn_table = NULL) {
   if (name %in% ref$SCI_NAME) return(list(ebird = name, type = "exact"))
-  syn <- .syn_resolve(name, ref)
+  syn <- if (is.null(syn_table)) .syn_resolve(name, ref) else .syn_resolve(name, ref, syn_table)
   if (!is.na(syn$ebird)) return(syn)
   sg <- .same_genus_reassign(name, ref)
   if (!is.na(sg$ebird)) return(sg)
@@ -279,6 +321,23 @@
 ## back to its order when that family name is not one clootl uses. The match is
 ## accepted only when the epithet resolves to a single eBird species, so epithet
 ## collisions between unrelated birds are left unmatched.
+##
+## This is the weakest step in the resolver, and the reason is that the pool is
+## built from MalAvi's FAMILY_NAME -- the least maintained field in the release.
+## When MalAvi files a genus under an old or wrong family, the pool becomes the
+## CURRENT clootl membership of that family name, the true species is not in it
+## (clootl has moved it elsewhere), and any lone same-epithet bird in the pool
+## wins. That produced five false species in the shipped crosswalk, among them
+## Tiaris obscura -> Akialoa obscura, an extinct Hawaiian honeycreeper standing in
+## for a Peruvian grassquit.
+##
+## So the epithet alone is not enough to move a host into a different genus. Where
+## clootl still uses the MalAvi genus, it already says which families that genus
+## belongs to, and a candidate outside them is rejected. Note this is deliberately
+## about the genus's home in clootl, not about MalAvi's family label -- the label
+## is what is untrustworthy here. When clootl has retired the MalAvi genus
+## altogether (Hemispingus, say) there is nothing to check against and the step is
+## as blind as before; those cases need a row in data-raw/manual_taxonomy.csv.
 .epithet_reassign <- function(name, family, order, ref) {
   e <- .epithet(name)
   s <- .epithet_stem(e)
@@ -292,9 +351,17 @@
   cand <- unique(pool$SCI_NAME[.epithet(pool$SCI_NAME) == e])            # exact epithet
   if (length(cand) != 1)
     cand <- unique(pool$SCI_NAME[.epithet_stem(.epithet(pool$SCI_NAME)) == s])  # gender-relaxed
-  if (length(cand) == 1)
-    return(list(ebird = cand, type = paste0("reassigned:", level)))
-  list(ebird = NA_character_, type = NA_character_)
+  if (length(cand) != 1) return(list(ebird = NA_character_, type = NA_character_))
+
+  ## the genus guard described above: only applies when the match moves the host
+  ## into a different genus AND clootl still recognizes the MalAvi genus
+  if (.genus(cand) != .genus(name)) {
+    home_families <- unique(ref$latin_family[.genus(ref$SCI_NAME) == .genus(name)])
+    cand_family   <- unique(ref$latin_family[ref$SCI_NAME == cand])
+    if (length(home_families) > 0 && !any(cand_family %in% home_families))
+      return(list(ebird = NA_character_, type = NA_character_))
+  }
+  list(ebird = cand, type = paste0("reassigned:", level))
 }
 
 ## Flag the crosswalk rows that rest on the weakest evidence, so a maintainer can
@@ -304,8 +371,18 @@
 ##   - "weak_reassignment": a family/order-pool epithet match that *changed the
 ##     genus* and only agreed after Latin gender relaxation (not an exact
 ##     epithet). A wrong MalAvi family label can drive a coincidental stem into
-##     an unrelated genus here. (Exact-epithet genus transfers, same-genus shifts,
-##     and synonym matches all carry stronger support and are not flagged.)
+##     an unrelated genus here. (Same-genus shifts and synonym matches carry
+##     stronger support and are not flagged.)
+##   - "retired_genus": a family/order-pool epithet match that changed the genus,
+##     where clootl no longer uses the MalAvi genus at all. This is the exact blind
+##     spot of the genus guard in .epithet_reassign(): with no clootl entry for the
+##     MalAvi genus there is no home family to check the candidate against, so the
+##     match rests on the epithet and MalAvi's family label alone. Most of these are
+##     the standard transfers (Dendroica -> Setophaga, Megalaima -> Psilopogon), but
+##     Hemispingus frontalis -> Crithagra frontalis, an African finch standing in for
+##     a Peruvian tanager, hid here through several releases. Flagged whether or not
+##     the epithet matched exactly, because an exact epithet is no evidence at all
+##     when the pool is the wrong family.
 ##   - "legacy": resolved only through the decades-old original malaviR hand key,
 ##     which predates the current eBird taxonomy and is worth re-checking.
 ## Manual overrides are excluded -- a human already decided those. NOTE this is a
@@ -316,13 +393,19 @@
 .audit_taxonomy <- function(key) {
   genus_changed <- .genus(key$malavi_species) != .genus(key$ebird_species)
   epithet_exact <- .epithet(key$malavi_species) == .epithet(key$ebird_species)
+  ## genera clootl still recognizes; a MalAvi genus absent from this is one the
+  ## genus guard could not check
+  known_genus <- .genus(key$malavi_species) %in% unique(.genus(clootl_ref$SCI_NAME))
 
-  weak <- key$match_type %in% c("reassigned:family", "reassigned:order") &
-    genus_changed & !epithet_exact & !is.na(key$ebird_species)
-  legacy <- key$match_type == "legacy"
+  pooled <- key$match_type %in% c("reassigned:family", "reassigned:order") &
+    genus_changed & !is.na(key$ebird_species)
+  weak    <- pooled & !epithet_exact
+  retired <- pooled & !known_genus & !weak     # weak already lists the relaxed ones
+  legacy  <- key$match_type == "legacy"
 
-  flag   <- weak | legacy
-  reason <- ifelse(legacy[flag], "legacy", "weak_reassignment")
+  flag   <- weak | retired | legacy
+  reason <- ifelse(legacy[flag], "legacy",
+                   ifelse(retired[flag], "retired_genus", "weak_reassignment"))
   out <- data.frame(
     malavi_species = key$malavi_species[flag],
     ebird_species  = key$ebird_species[flag],

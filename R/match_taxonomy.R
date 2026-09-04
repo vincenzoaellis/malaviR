@@ -13,9 +13,15 @@
 #' \code{match_type = "manual"}. Remaining names are matched against the eBird
 #' scientific names, and, failing that, against the IOC, BirdLife, and Howard &
 #' Moore synonyms carried by clootl (which are then resolved back to the eBird
-#' name). Because the same synonym string is occasionally shared by more than one
-#' eBird species, an ambiguous synonym is accepted only for the candidate whose
-#' own epithet agrees with the host's, never by silently taking the first.
+#' name). Those synonym columns hold semicolon-joined lists wherever another
+#' authority splits an eBird species, and every name in such a list is searched;
+#' a host name found only inside one gets a \code{"-lump"} label (e.g.
+#' \code{"synonym:BirdLife-lump"}), because eBird then treats that authority's
+#' species as part of a broader one and the MalAvi host concept is narrower than
+#' the name it maps to. Because the same synonym string is occasionally shared by
+#' more than one eBird species, an ambiguous synonym is accepted only for the
+#' candidate whose own epithet agrees with the host's, never by silently taking
+#' the first.
 #' Many MalAvi host names are
 #' older binomials that no longer match any of those because the genus has since
 #' been split or the specific epithet re-gendered (e.g. \emph{Anas clypeata} is
@@ -29,7 +35,11 @@
 #' The same-genus step is tried first because a fixed genus is the strongest
 #' identity signal and is not misled by a mislabeled MalAvi family; the
 #' family/order constraint then
-#' guards against epithet collisions between unrelated birds. Names whose epithet
+#' guards against epithet collisions between unrelated birds. That constraint is
+#' only as good as MalAvi's family label, which is the least maintained field in
+#' the release, so a genus-changing match is additionally checked against the
+#' families clootl files the MalAvi genus in and declined when it falls outside
+#' them. Names whose epithet
 #' remains ambiguous are left unmatched rather than guessed. As a last step, host
 #' names still unmatched are looked up in the hand-curated species key from the
 #' original \code{malaviR} (which mapped many MalAvi names to corrected
@@ -52,7 +62,14 @@
 #' The values differ in how much they should be trusted:
 #' \describe{
 #'   \item{\code{"exact"}}{the strongest match: the host name is itself a current
-#'     eBird scientific name. Safe to use as-is.}
+#'     eBird scientific name. It is a match of \emph{names}, not of species
+#'     concepts: MalAvi records accrue under the name the original study used, so
+#'     an old broad name that is still current for a narrower species matches
+#'     exactly and silently. Of the 19 MalAvi records for \emph{Tyto alba}, 12 are
+#'     from the New World or Australasia and belong to \emph{T. furcata} or
+#'     \emph{T. javanica} under the bundled taxonomy. Exact matches need no
+#'     taxonomic review, but records under a recently split name still need
+#'     locality checking.}
 #'   \item{\code{"manual"}, \code{"synonym:*"}, \code{"reassigned:*"},
 #'     \code{"legacy"}}{resolved, but by a rule rather than an exact hit -- a
 #'     maintainer override, a recognized synonym, an epithet/genus reassignment, or
@@ -132,6 +149,11 @@ match_taxonomy <- function(species = NULL, version = "latest",
   ref <- clootl_ref  # bundled clootl taxonomy snapshot (internal data)
   ref$latin_family <- sub(" .*$", "", ref$FAMILY)  # clootl FAMILY is "Anatidae (Ducks...)"
 
+  ## clootl's synonym columns, exploded to one name per row (they hold
+  ## semicolon-joined lists wherever another authority splits an eBird species).
+  ## Built once here and passed down, rather than rebuilt for every host name.
+  syn_table <- .syn_table(ref)
+
   ## names that can never match a single species (".../ sp.", "... spp", hybrids,
   ## or bare genus names)
   generic <- grepl(" spp?\\.?$", species) | grepl(" x ", species) | !grepl(" ", species)
@@ -145,7 +167,7 @@ match_taxonomy <- function(species = NULL, version = "latest",
   for (i in which(!generic)) {
     corrected <- manual_key[species[i]]
     if (is.na(corrected)) next
-    res <- .resolve_name(corrected, family[i], order[i], ref)
+    res <- .resolve_name(corrected, family[i], order[i], ref, syn_table)
     if (!is.na(res$ebird)) {
       ebird[i]      <- res$ebird
       match_type[i] <- "manual"
@@ -164,7 +186,7 @@ match_taxonomy <- function(species = NULL, version = "latest",
   ##    agrees, rather than silently taking the first row.
   todo <- which(is.na(ebird) & !generic)
   for (i in todo) {
-    res <- .syn_resolve(species[i], ref)
+    res <- .syn_resolve(species[i], ref, syn_table)
     if (!is.na(res$ebird)) {
       ebird[i]      <- res$ebird
       match_type[i] <- res$type
@@ -202,7 +224,7 @@ match_taxonomy <- function(species = NULL, version = "latest",
   for (i in todo) {
     corrected <- legacy_key[species[i]]
     if (is.na(corrected)) next
-    res <- .resolve_name(corrected, family[i], order[i], ref)
+    res <- .resolve_name(corrected, family[i], order[i], ref, syn_table)
     if (!is.na(res$ebird)) {
       ebird[i]      <- res$ebird
       match_type[i] <- "legacy"
