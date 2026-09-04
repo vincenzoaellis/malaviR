@@ -25,8 +25,9 @@ release.}
 
 \item{pseudocount}{Smoothing pseudocount added to each base count when
 computing per-site frequencies (default 0.01). Without it, a base that never
-occurs at a site would have frequency exactly 0, and the QC score (which
-takes logs of these frequencies) would hit \code{log(0) = -Inf}. Adding a
+occurs at a site would have frequency exactly 0, and the per-site log
+likelihood computed from these frequencies would hit \code{log(0) = -Inf}.
+Adding a
 small amount to every base lifts those zeros just off the floor. A small
 value (0.01) barely perturbs the observed frequencies, so genuinely
 unobserved bases stay very rare (and thus stay flag-worthy); a larger value

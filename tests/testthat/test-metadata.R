@@ -38,8 +38,8 @@ test_that("lineage_qc records genetic code, expected length, and version", {
   expect_equal(meta$genetic_code, 4)
   expect_equal(meta$expected_length, 479)
   expect_equal(meta$malavi_version, malavi_version())
-  ## print mentions the heuristic caveat
-  expect_output(print(qc), "heuristic")
+  ## print says what the numbers are and are not
+  expect_output(print(qc), "counts, not a verdict")
 })
 
 test_that("bundled-data list outputs record the MalAvi version (not NA)", {

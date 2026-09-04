@@ -63,22 +63,28 @@ An object of class \code{malavi_lineage_qc}: a list with
     \item{\code{call}}{the overall verdict: \code{known_lineage} (an exact match
       covering enough of the query -- see \code{matches_known_lineage_over_short_overlap}
       under \emph{Flags} for what happens when it does not),
-      \code{plausible_new_lineage}, \code{review}, \code{strong_warning},
-      \code{possible_error}, \code{possible_chimera}, or
-      \code{invalid_or_strong_warning} / \code{invalid_sequence}.}
-    \item{\code{score}}{the plausibility score in \code{[0, 1]} (1 = typical,
-      0 = suspicious). Artifact risk is simply \code{1 - score}.}
-    \item{\code{summary}}{a one-row data frame with \code{call}, \code{score},
-      the \code{nearest_lineage} and \code{nearest_distance} (Hamming distance
-      to it), \code{n_comparable} (how many positions that distance was measured
-      over -- a distance of 0 across 6 shared positions is a much weaker statement
-      than the same distance across 478), \code{n_mutations} versus that lineage,
-      of which \code{n_nonsynonymous} change the protein, and
-      \code{n_stop_codons}.}
+      \code{contains_stop_codon} (translation in frame 1 hits a stop, so the
+      sequence or its frame is wrong), \code{possible_chimera},
+      \code{no_exact_match} (the residual: nothing in the reference is
+      identical to it, which is a statement about the reference rather than a
+      verdict on the query), or \code{invalid_sequence} (could not be
+      screened at all).}
+    \item{\code{summary}}{one row of numbers for this query: \code{call}, the
+      \code{nearest_lineage} and \code{nearest_distance} (Hamming distance to
+      it), \code{n_comparable} (how many positions that distance was measured
+      over -- a distance of 0 across 6 shared positions is a much weaker
+      statement than the same distance across 478), \code{n_mutations} versus
+      that lineage and the breakdown of them
+      (\code{n_nonsynonymous}, \code{n_second_position_changes},
+      \code{n_transversions}), how unusual the query's bases are for their sites
+      (\code{n_invariant_site_changes}, \code{n_bases_never_observed},
+      \code{n_rare_site_bases}), \code{n_stop_codons}, and
+      \code{chimera_delta}. \code{rbind} these across many queries to get an
+      analysis-ready table.}
     \item{\code{flags}}{the character vector of warnings (see \emph{Flags}).}
-    \item{\code{counts}}{a named integer vector with the full per-category
-      counts behind the score (invariant-site changes, never-observed bases,
-      rare bases, second-position changes, transversions).}
+    \item{\code{counts}}{a named integer vector of the per-category site and
+      mutation counts. Kept for code written against the pre-1.2.0 shape; the
+      same numbers are in \code{summary}.}
     \item{\code{nearest}}{a data frame of the five nearest known lineages and
       their distances.}
     \item{\code{mutations}}{one row per difference from the nearest lineage,
@@ -101,15 +107,27 @@ Read warnings as "worth a look", not "this is definitely an error".
 \details{
 The query must already be aligned to the MalAvi barcode (same length and
 reading frame as the reference). For an unaligned sequence, find its closest
-lineages first with \code{\link{blast_malavi}}. The screen rolls a handful of
-checks into one \code{score} in \code{[0, 1]} (1 = typical of known MalAvi
-diversity, 0 = highly suspicious or invalid).
+lineages first with \code{\link{blast_malavi}}.
 
-The \code{score} is an empirical, rule-based plausibility index: known checks
-are turned into penalties with fixed weights and mapped to \code{[0, 1]}. It is
-\strong{not} a calibrated probability that the sequence is correct or
-incorrect, and it has not been validated against a labeled truth set. Use it
-to rank sequences for manual review, not as a pass/fail verdict. The
+\strong{The screen reports counts, not a verdict.} Up to version 1.1.2 it also
+returned a composite \code{score} in \code{[0, 1]}, built by weighting these
+counts into a penalty and mapping it through \code{exp(-penalty/10)} to calls
+of \code{plausible_new_lineage} / \code{review} / \code{strong_warning} /
+\code{possible_error}. That score is gone. Leave-one-out on 60 curated bundled
+lineages put 26\% of them in \code{strong_warning} or \code{possible_error},
+and every lineage more than 20 bp from its nearest neighbor came out
+\code{possible_error} -- including a described \emph{Leucocytozoon} species at
+a score of 0. No term was normalized by distance, so the composite was in
+effect a measure of how divergent a sequence is, and divergence is the one
+property a genuinely new lineage has. It could not tell an artifact from a
+discovery, while its call names implied it could.
+
+What remains is every count it was made of, each a checkable fact, in
+\code{summary} as one row per query -- so \code{rbind}-ing the summaries of a
+set of sequences gives a table to sort, filter and model. Judging them is left
+to you, because it depends on what you are screening: a within-sample ASV set,
+a set of new deposits, and a re-check of the database itself do not want the
+same thresholds. The
 translation uses genetic code 4 (protozoan mitochondrial), the correct code
 for avian haemosporidians. The bundled MalAvi version, genetic code, and
 expected length used for a given result are recorded on the returned object

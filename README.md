@@ -66,7 +66,11 @@ This is a new function that I'm still trying to get right. Please treat it as **
 `lineage_qc()` is a check of whether a MalAvi cyt b sequence (like one you get out of a Sanger sequence or elsewhere) looks plausible or not based on the larger database. It works by flagging strange or surprising features about a sequence including length (we expect 479bp), gaps/ambiguities, stop codons (translated in frame under the protozoan mitochondrial
 genetic code...code 4), distance to the nearest lineage in the MalAvi alignment, mutations at invariant or rarely varying
 sites, nonsynonymous/second-position/transversion changes,
-and a sliding-window chimera checker (basically checking if part of the sequence matches one MalAvi lineage and another part matches a different sequence). Then it computes a `score` from 0 (suspicious) to 1 (expected based on the MalAvi alignment) and provides warnings. This is supposed to encourage further investigation, but it doesn't tell you whether a sequence is necessarily wrong. (Working with denoised amplicon sequence variants [ASVs] from short-read deep sequencing of the MalAvi region — quantifying lineages per sample, reconciling mixed infections, and flagging the rare 1-bp error variants of an abundant ASV — is handled by the companion **malaviASV** package [in development], which builds on `lineage_qc()`.)
+and a sliding-window chimera checker (basically checking if part of the sequence matches one MalAvi lineage and another part matches a different sequence).
+
+It reports all of that as **counts**, one row per sequence in `$summary`, so you can `rbind` a set of them into a table and sort or model it however suits your question. It does not combine them into a single number: a sequence can be unusual because it is wrong or because it is new, and no summary of these counts separates those two. Deciding is your job, and where you draw the line depends on what you are screening.
+
+(Working with denoised amplicon sequence variants [ASVs] from short-read deep sequencing of the MalAvi region — quantifying lineages per sample, reconciling mixed infections, and flagging the rare 1-bp error variants of an abundant ASV — is handled by the companion **malaviASV** package [in development], which builds on `lineage_qc()`.)
 
 ```r
 seq <- paste(as.character(aln[1, ]), collapse = "")   # your own sequence here (should be aligned to MalAvi already)
@@ -231,9 +235,10 @@ A few important points:
   positions are unknown. Don't consider collapsed sequences as necessarily identical (we just don't know).
 - `ambiguous_pairs()` returns mutually partial pairs (neither contains the other...see above).
   These should be **reviewed**, not necessarily collapsed.
-- `lineage_qc()` returns a plausibility score, not a
-  probability that a sequence is correct. The plausibility score is meant to focus your attention on the sequence.
-  Also note that a lineage already in MalAvi will always match itself, so screening one
+- `lineage_qc()` returns counts, not a verdict. A sequence can be unusual because it is
+  wrong or because it is new, and nothing in the output separates those two — deciding
+  is your job, and where you draw the line depends on what you are screening. Also note
+  that a lineage already in MalAvi will always match itself, so screening one
   is only informative if you hold it out of the reference (see above).
 - The MalAvi tables are shipped **verbatim**. Known problems in them are reported by
   `malavi_issues()`, not silently patched.

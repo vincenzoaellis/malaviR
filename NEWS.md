@@ -1,3 +1,33 @@
+# malaviR 1.2.0
+
+**`lineage_qc()` no longer returns a plausibility score.** The `score` element, the
+`exp(-penalty/10)` mapping and its weights, and the four calls that were score cutoffs
+(`plausible_new_lineage`, `review`, `strong_warning`, `possible_error`) are all removed.
+
+The reason is that the score did not measure what it claimed to. Holding out 60 curated
+lineages already in MalAvi and re-screening them put 26% of them in `strong_warning` or
+`possible_error`, and every lineage more than 20 bp from its nearest neighbor came back
+`possible_error` -- including L_PIRIE01, a described *Leucocytozoon* species, at a score of
+0. No penalty term was normalized by distance, so the composite was in effect a divergence
+measure, and divergence is the one property a genuinely new lineage has. It could not
+separate an artifact from a discovery while its call names implied it could.
+
+Everything it was built from is kept, because each piece is a checkable fact. `summary` is
+now one row carrying all of them -- `n_mutations` and its breakdown
+(`n_nonsynonymous`, `n_second_position_changes`, `n_transversions`), how unusual the
+query's bases are for their sites (`n_invariant_site_changes`, `n_bases_never_observed`,
+`n_rare_site_bases`), `n_stop_codons`, `n_comparable` and `chimera_delta` -- so `rbind`
+across a set of sequences gives a table to sort, filter and model. Judging them is left to
+the user, because a within-sample ASV set, a batch of new deposits, and a re-check of the
+database itself do not want the same thresholds. `counts` is unchanged for code written
+against the old shape.
+
+`call` keeps only the outcomes that rest on a single fact: `known_lineage` (an exact match
+over enough of the query), `contains_stop_codon` (renamed from
+`invalid_or_strong_warning`), `possible_chimera`, `invalid_sequence`, and
+`no_exact_match` as the residual -- which is a statement about the reference, not a
+verdict on the query.
+
 # malaviR 1.1.2
 
 Fixes from an independent code and biology review of 1.1.1. Two of them change

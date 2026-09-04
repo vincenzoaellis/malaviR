@@ -46,7 +46,7 @@ test_that("lineage_qc detects a stop codon under genetic code 4", {
                    expected_length = 12, chimera_check = FALSE)
   expect_true("contains_stop_codon" %in% qc$flags)
   expect_equal(qc$summary$n_stop_codons, 1)
-  expect_equal(qc$call, "invalid_or_strong_warning")
+  expect_equal(qc$call, "contains_stop_codon")
 
   ## TGA is tryptophan (not a stop) under code 4 -> no stop flag
   qc2 <- lineage_qc("atgtgagggccc", make_ref(),
@@ -58,8 +58,10 @@ test_that("lineage_qc returns an invalid_sequence result for wrong length", {
   qc <- lineage_qc("atgtttgggcc", make_ref(),    # 11 bp
                    expected_length = 12, chimera_check = FALSE)
   expect_equal(qc$call, "invalid_sequence")
-  expect_equal(qc$score, 0)
+  expect_null(qc$score)                       # the composite score went in 1.2.0
   expect_true(any(grepl("wrong_length", qc$flags)))
+  ## the summary keeps its full shape so rbind over a mixed set still works
+  expect_true(all(is.na(qc$summary$n_mutations)))
 })
 
 test_that("lineage_qc honors a user-set rare_base_frequency threshold", {
@@ -458,4 +460,43 @@ test_that("a change at an invariant site is scored as one, not as an unobserved 
   expect_equal(unname(qc$counts["n_invariant_site_changes"]), 1L)
   expect_equal(unname(qc$counts["n_bases_never_observed"]), 0L)
   expect_true(any(grepl("changes_at_invariant_sites", qc$flags)))
+})
+
+test_that("the composite plausibility score is gone and the counts are in summary", {
+  ## Removed in 1.2.0. Leave-one-out on 60 curated bundled lineages put 26% of them
+  ## in strong_warning or possible_error, and every lineage more than 20 bp from its
+  ## nearest neighbor came out possible_error, including a described Leucocytozoon
+  ## species at a score of 0 -- because no penalty term was normalized by distance,
+  ## so the composite measured divergence, which is what a new lineage has.
+  qc <- lineage_qc("atgtttgggccc", make_ref(), expected_length = 12,
+                   chimera_check = FALSE)
+
+  expect_null(qc$score)
+  expect_false("score" %in% names(qc$summary))
+  expect_false(qc$call %in% c("plausible_new_lineage", "review",
+                              "strong_warning", "possible_error"))
+
+  ## every count the screen produces is in the one-row summary, so a set of
+  ## sequences rbinds into an analysis table
+  expect_true(all(c("n_mutations", "n_nonsynonymous", "n_second_position_changes",
+                    "n_transversions", "n_invariant_site_changes",
+                    "n_bases_never_observed", "n_rare_site_bases",
+                    "n_stop_codons", "n_comparable", "chimera_delta")
+                  %in% names(qc$summary)))
+  expect_equal(nrow(qc$summary), 1L)
+})
+
+test_that("summaries of several queries rbind into one table", {
+  ref <- make_ref()
+  ## an exact match, a one-base difference, a stop codon, and a wrong length
+  qs  <- c("atgtttgggccc", "atgtttcggccc", "atgtaagggccc", "atgtttgggcc")
+  tab <- do.call(rbind, lapply(qs, function(q)
+    lineage_qc(q, ref, expected_length = 12, chimera_check = FALSE)$summary))
+
+  expect_equal(nrow(tab), 4L)
+  expect_true(is.numeric(tab$n_mutations))
+  ## the four calls are facts, not thresholds: an exact match, a real difference,
+  ## a stop codon, and a sequence that could not be screened at all
+  expect_setequal(tab$call, c("known_lineage", "no_exact_match",
+                              "contains_stop_codon", "invalid_sequence"))
 })

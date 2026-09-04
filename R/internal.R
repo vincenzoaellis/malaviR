@@ -838,23 +838,26 @@
   do.call(rbind, rows)
 }
 
-## Fixed internal weights and cutoffs for the lineage QC score. These are
-## deliberately NOT user-facing arguments: they are the heuristic guts of the
-## plausibility score, tuned once, and exposing them as function arguments only
-## added clutter. The two knobs users actually want to change (expected_length
-## and rare_base_frequency) are plain arguments of lineage_qc(); everything else
-## lives here. .lineage_qc_settings() merges the two knobs with these weights
-## into the single list the QC core consumes.
+## Fixed internal cutoffs for the lineage QC screen. These are deliberately NOT
+## user-facing arguments: exposing them only added clutter. The two knobs users
+## actually want to change (expected_length and rare_base_frequency) are plain
+## arguments of lineage_qc(); everything else lives here.
+## .lineage_qc_settings() merges the two knobs with these into the single list
+## the QC core consumes.
+##
+## Version 1.2.0 removed the weighted penalty score this list used to carry
+## (invariant_site_penalty 4, unobserved_base_penalty 3, rare_base_penalty 1.5,
+## nonsynonymous_penalty 1, second_position_penalty 1.5, transversion_penalty
+## 0.75, mapped through exp(-penalty/10) to pass/review/strong_warning cutoffs of
+## 0.85/0.60/0.35). Leave-one-out on 60 curated bundled lineages put 26% of them
+## in strong_warning or possible_error, and every lineage more than 20 bp from its
+## nearest neighbor came out possible_error -- including L_PIRIE01, a described
+## Leucocytozoon species, at a score of 0. No term was normalized by distance, so
+## the composite was in effect a divergence measure wearing a plausibility label,
+## and divergence is the one property a genuinely new lineage has. The individual
+## counts it was built from are kept and reported; they are checkable facts.
 .lineage_qc_weights <- function() {
   list(
-    ## penalty added to the running penalty per offending site/mutation
-    invariant_site_penalty  = 4,    # a change at a never-varying site
-    unobserved_base_penalty = 3,    # a base never seen at that site in MalAvi
-    rare_base_penalty       = 1.5,  # a base seen but rare at that site
-    nonsynonymous_penalty   = 1,    # an amino-acid-changing difference
-    second_position_penalty = 1.5,  # a 2nd-codon-position difference (often nonsyn)
-    transversion_penalty    = 0.75, # a transversion (rarer than a transition)
-
     ## Hamming-distance bins to the nearest known lineage (flag wording only)
     near_known_distance = 2,
     divergent_distance  = 5,
@@ -867,10 +870,7 @@
     ## See the note above .qc_detect_chimera. chimera_min_parent_switches is retained and
     ## reported but no longer takes part in the call: 98.4% of ordinary lineages met it.
     chimera_delta_threshold = 8, chimera_min_parent_switches = 2,
-    chimera_min_parent_distance = 5, chimera_min_segment = 60,
-
-    ## final-score cutoffs that map the score to a call
-    pass_score = 0.85, review_score = 0.60, strong_warning_score = 0.35
+    chimera_min_parent_distance = 5, chimera_min_segment = 60
   )
 }
 

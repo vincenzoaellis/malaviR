@@ -30,8 +30,9 @@
 #'   release.
 #' @param pseudocount Smoothing pseudocount added to each base count when
 #'   computing per-site frequencies (default 0.01). Without it, a base that never
-#'   occurs at a site would have frequency exactly 0, and the QC score (which
-#'   takes logs of these frequencies) would hit \code{log(0) = -Inf}. Adding a
+#'   occurs at a site would have frequency exactly 0, and the per-site log
+#'   likelihood computed from these frequencies would hit \code{log(0) = -Inf}.
+#'   Adding a
 #'   small amount to every base lifts those zeros just off the floor. A small
 #'   value (0.01) barely perturbs the observed frequencies, so genuinely
 #'   unobserved bases stay very rare (and thus stay flag-worthy); a larger value
@@ -81,15 +82,27 @@ build_malavi_site_profile <- function(reference = NULL, version = "latest",
 #'
 #' The query must already be aligned to the MalAvi barcode (same length and
 #' reading frame as the reference). For an unaligned sequence, find its closest
-#' lineages first with \code{\link{blast_malavi}}. The screen rolls a handful of
-#' checks into one \code{score} in \code{[0, 1]} (1 = typical of known MalAvi
-#' diversity, 0 = highly suspicious or invalid).
+#' lineages first with \code{\link{blast_malavi}}.
 #'
-#' The \code{score} is an empirical, rule-based plausibility index: known checks
-#' are turned into penalties with fixed weights and mapped to \code{[0, 1]}. It is
-#' \strong{not} a calibrated probability that the sequence is correct or
-#' incorrect, and it has not been validated against a labeled truth set. Use it
-#' to rank sequences for manual review, not as a pass/fail verdict. The
+#' \strong{The screen reports counts, not a verdict.} Up to version 1.1.2 it also
+#' returned a composite \code{score} in \code{[0, 1]}, built by weighting these
+#' counts into a penalty and mapping it through \code{exp(-penalty/10)} to calls
+#' of \code{plausible_new_lineage} / \code{review} / \code{strong_warning} /
+#' \code{possible_error}. That score is gone. Leave-one-out on 60 curated bundled
+#' lineages put 26\% of them in \code{strong_warning} or \code{possible_error},
+#' and every lineage more than 20 bp from its nearest neighbor came out
+#' \code{possible_error} -- including a described \emph{Leucocytozoon} species at
+#' a score of 0. No term was normalized by distance, so the composite was in
+#' effect a measure of how divergent a sequence is, and divergence is the one
+#' property a genuinely new lineage has. It could not tell an artifact from a
+#' discovery, while its call names implied it could.
+#'
+#' What remains is every count it was made of, each a checkable fact, in
+#' \code{summary} as one row per query -- so \code{rbind}-ing the summaries of a
+#' set of sequences gives a table to sort, filter and model. Judging them is left
+#' to you, because it depends on what you are screening: a within-sample ASV set,
+#' a set of new deposits, and a re-check of the database itself do not want the
+#' same thresholds. The
 #' translation uses genetic code 4 (protozoan mitochondrial), the correct code
 #' for avian haemosporidians. The bundled MalAvi version, genetic code, and
 #' expected length used for a given result are recorded on the returned object
@@ -209,22 +222,28 @@ build_malavi_site_profile <- function(reference = NULL, version = "latest",
 #'     \item{\code{call}}{the overall verdict: \code{known_lineage} (an exact match
 #'       covering enough of the query -- see \code{matches_known_lineage_over_short_overlap}
 #'       under \emph{Flags} for what happens when it does not),
-#'       \code{plausible_new_lineage}, \code{review}, \code{strong_warning},
-#'       \code{possible_error}, \code{possible_chimera}, or
-#'       \code{invalid_or_strong_warning} / \code{invalid_sequence}.}
-#'     \item{\code{score}}{the plausibility score in \code{[0, 1]} (1 = typical,
-#'       0 = suspicious). Artifact risk is simply \code{1 - score}.}
-#'     \item{\code{summary}}{a one-row data frame with \code{call}, \code{score},
-#'       the \code{nearest_lineage} and \code{nearest_distance} (Hamming distance
-#'       to it), \code{n_comparable} (how many positions that distance was measured
-#'       over -- a distance of 0 across 6 shared positions is a much weaker statement
-#'       than the same distance across 478), \code{n_mutations} versus that lineage,
-#'       of which \code{n_nonsynonymous} change the protein, and
-#'       \code{n_stop_codons}.}
+#'       \code{contains_stop_codon} (translation in frame 1 hits a stop, so the
+#'       sequence or its frame is wrong), \code{possible_chimera},
+#'       \code{no_exact_match} (the residual: nothing in the reference is
+#'       identical to it, which is a statement about the reference rather than a
+#'       verdict on the query), or \code{invalid_sequence} (could not be
+#'       screened at all).}
+#'     \item{\code{summary}}{one row of numbers for this query: \code{call}, the
+#'       \code{nearest_lineage} and \code{nearest_distance} (Hamming distance to
+#'       it), \code{n_comparable} (how many positions that distance was measured
+#'       over -- a distance of 0 across 6 shared positions is a much weaker
+#'       statement than the same distance across 478), \code{n_mutations} versus
+#'       that lineage and the breakdown of them
+#'       (\code{n_nonsynonymous}, \code{n_second_position_changes},
+#'       \code{n_transversions}), how unusual the query's bases are for their sites
+#'       (\code{n_invariant_site_changes}, \code{n_bases_never_observed},
+#'       \code{n_rare_site_bases}), \code{n_stop_codons}, and
+#'       \code{chimera_delta}. \code{rbind} these across many queries to get an
+#'       analysis-ready table.}
 #'     \item{\code{flags}}{the character vector of warnings (see \emph{Flags}).}
-#'     \item{\code{counts}}{a named integer vector with the full per-category
-#'       counts behind the score (invariant-site changes, never-observed bases,
-#'       rare bases, second-position changes, transversions).}
+#'     \item{\code{counts}}{a named integer vector of the per-category site and
+#'       mutation counts. Kept for code written against the pre-1.2.0 shape; the
+#'       same numbers are in \code{summary}.}
 #'     \item{\code{nearest}}{a data frame of the five nearest known lineages and
 #'       their distances.}
 #'     \item{\code{mutations}}{one row per difference from the nearest lineage,
@@ -343,12 +362,18 @@ lineage_qc <- function(query, reference = NULL, site_profile = NULL,
   ## metrics cannot be computed. Return a useful invalid-sequence result.
   if (query_length != nrow(site_profile)) {
     out <- list(
-      summary = data.frame(call = "invalid_sequence", score = 0,
+      summary = data.frame(call = "invalid_sequence",
                            nearest_lineage = NA_character_, nearest_distance = NA_real_,
                            n_comparable = NA_integer_,
                            n_mutations = NA_integer_, n_nonsynonymous = NA_integer_,
-                           n_stop_codons = NA_integer_, stringsAsFactors = FALSE),
-      call = "invalid_sequence", score = 0, flags = unique(flags),
+                           n_second_position_changes = NA_integer_,
+                           n_transversions = NA_integer_,
+                           n_invariant_site_changes = NA_integer_,
+                           n_bases_never_observed = NA_integer_,
+                           n_rare_site_bases = NA_integer_,
+                           n_stop_codons = NA_integer_,
+                           chimera_delta = NA_real_, stringsAsFactors = FALSE),
+      call = "invalid_sequence", flags = unique(flags),
       query_length = query_length,
       message = paste("Query length does not match the expected MalAvi barcode",
                       "length; downstream QC was skipped. Align the query to the",
@@ -478,58 +503,60 @@ lineage_qc <- function(query, reference = NULL, site_profile = NULL,
     if (chimera_flagged) flags <- c(flags, "possible_chimera_or_mixed_template_pattern")
   }
 
-  ## ---- transparent penalty -> bounded score ----
-  ## Start at penalty 0 and add interpretable amounts. This is an empirical
-  ## plausibility score, not a statistical probability.
-  penalty <- settings$invariant_site_penalty * n_invariant_changes +
-    settings$unobserved_base_penalty * n_unobserved_site_bases +
-    settings$rare_base_penalty * n_rare_site_bases +
-    settings$nonsynonymous_penalty * n_nonsynonymous +
-    settings$second_position_penalty * n_second_position +
-    settings$transversion_penalty * n_transversions
-  if (has_stop_codon) penalty <- penalty + 10
-  if (any(c("contains_gaps", "contains_N", "contains_ambiguity_codes",
-            "invalid_or_disallowed_characters") %in% flags)) penalty <- penalty + 2
-  if (chimera_flagged) penalty <- penalty + 4
-
-  score <- max(0, min(1, exp(-penalty / 10)))
-
   ## ---- final call ----
+  ## Every value here is one checkable fact about the query, in the order that a
+  ## reader should learn them: a stop codon says the sequence or its frame is
+  ## wrong and nothing below it is worth reading; an exact match says the query is
+  ## already in the reference; a chimera pattern says two lineages explain it
+  ## better than one. `no_exact_match` is the residual, and it is a statement
+  ## about the reference, not a verdict on the query.
+  ##
+  ## Version 1.2.0 removed the four calls that were score cutoffs
+  ## (plausible_new_lineage, review, strong_warning, possible_error) along with
+  ## the score itself; see .lineage_qc_weights() for why. Read the counts.
   if (has_stop_codon) {
-    call <- "invalid_or_strong_warning"
+    call <- "contains_stop_codon"
   } else if ("exact_match_to_known_lineage" %in% flags) {
     call <- "known_lineage"
   } else if (chimera_flagged) {
     call <- "possible_chimera"
-  } else if (score >= settings$pass_score) {
-    call <- "plausible_new_lineage"
-  } else if (score >= settings$review_score) {
-    call <- "review"
-  } else if (score >= settings$strong_warning_score) {
-    call <- "strong_warning"
   } else {
-    call <- "possible_error"
+    call <- "no_exact_match"
   }
 
+  ## One row of numbers per query. Since 1.2.0 this carries every count the screen
+  ## produces rather than a summary of them, so rbind-ing the summaries of many
+  ## sequences gives a table you can sort, filter and model directly -- which is
+  ## what the composite score was standing in the way of.
   summary <- data.frame(
-    call = call, score = score,
+    call = call,
     nearest_lineage = if (min_comparable == 0L) NA_character_ else nearest$lineage[1],
     nearest_distance = min_distance,
     ## how many positions that distance was measured over: a distance of 0 backed by
     ## 6 comparable positions is a different statement from one backed by 478
     n_comparable = min_comparable,
     n_mutations = n_mutations, n_nonsynonymous = n_nonsynonymous,
-    n_stop_codons = n_stop_codons, stringsAsFactors = FALSE
+    n_second_position_changes = n_second_position,
+    n_transversions = n_transversions,
+    n_invariant_site_changes = n_invariant_changes,
+    n_bases_never_observed = n_unobserved_site_bases,
+    n_rare_site_bases = n_rare_site_bases,
+    n_stop_codons = n_stop_codons,
+    ## how much better two reference lineages explain the query than the best
+    ## single one; NA when the chimera screen was not run
+    chimera_delta = if (is.null(chimera)) NA_real_ else as.numeric(chimera$chimera_delta),
+    stringsAsFactors = FALSE
   )
 
-  ## full per-category counts kept out of the printed summary to reduce clutter
+  ## kept for callers written against the pre-1.2.0 shape; the same numbers are
+  ## now in `summary`
   counts <- c(n_invariant_site_changes = n_invariant_changes,
               n_bases_never_observed   = n_unobserved_site_bases,
               n_rare_site_bases        = n_rare_site_bases,
               n_second_position_changes = n_second_position,
               n_transversions          = n_transversions)
 
-  result <- list(summary = summary, call = call, score = score,
+  result <- list(summary = summary, call = call,
                  flags = unique(flags), counts = counts,
                  nearest = nearest, mutations = mutations)
   ## only present when the frame diagnosis above found a stop-free frame
@@ -554,8 +581,6 @@ lineage_qc <- function(query, reference = NULL, site_profile = NULL,
 print.malavi_lineage_qc <- function(x, ...) {
   cat("MalAvi lineage QC\n")
   cat("  call:                ", x$call, "\n", sep = "")
-  cat("  plausibility score:  ", formatC(x$score, format = "f", digits = 2),
-      "   (0 = suspicious, 1 = typical of known MalAvi diversity)\n", sep = "")
   if (identical(x$call, "invalid_sequence")) {
     cat("\n", x$message, "\n", sep = "")
   } else {
@@ -565,7 +590,12 @@ print.malavi_lineage_qc <- function(x, ...) {
         " over ", s$n_comparable, " comparable positions)\n", sep = "")
     cat("  mutations vs nearest: ", s$n_mutations,
         "  (", s$n_nonsynonymous, " nonsynonymous, ",
-        s$n_stop_codons, " stop codons)\n", sep = "")
+        s$n_second_position_changes, " at 2nd codon position, ",
+        s$n_transversions, " transversions)\n", sep = "")
+    cat("  unusual for the site: ", s$n_invariant_site_changes,
+        " at invariant sites, ", s$n_bases_never_observed,
+        " never observed, ", s$n_rare_site_bases, " rare\n", sep = "")
+    cat("  stop codons:         ", s$n_stop_codons, "\n", sep = "")
   }
   ## reference provenance stamped by lineage_qc() (attr(x, "malavi_meta"))
   meta <- attr(x, "malavi_meta")
@@ -584,7 +614,7 @@ print.malavi_lineage_qc <- function(x, ...) {
     ## the reading-frame diagnosis, when there is one, needs the full sentence
     if (!is.null(x$message)) cat("\n", x$message, "\n", sep = "")
   }
-  cat("\nNote: the plausibility score is a heuristic screen for manual review,\n",
-      "not a probability that the sequence is correct or incorrect.\n", sep = "")
+  cat("\nNote: these are counts, not a verdict. A sequence can be unusual because it\n",
+      "is wrong or because it is new, and nothing here separates the two.\n", sep = "")
   invisible(x)
 }
