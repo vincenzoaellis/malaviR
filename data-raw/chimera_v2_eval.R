@@ -76,7 +76,7 @@ detect_v2 <- function(qcode, refcode, ref_names,
        best_single = a1)
 }
 
-## ---- build the two labelled sets --------------------------------------------------
+## ---- build the two labeled sets --------------------------------------------------
 N <- 200L
 neg_names <- sample(clean, N)
 pos_pairs <- data.frame(a = sample(clean, N), b = sample(clean, N),

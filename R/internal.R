@@ -138,7 +138,7 @@
 
 ## Merge each strict group into a strictly more complete strict group that
 ## contains it over its informative positions. Operates on one representative
-## row per strict group and returns a re-labelled group vector.
+## row per strict group and returns a re-labeled group vector.
 .merge_overlap <- function(code, informative_length, group) {
   rep_rows <- which(!duplicated(group))
   old_id   <- group[rep_rows]
@@ -989,7 +989,7 @@
 ##     distance to the nearest single lineage. The call was a **divergence** measure wearing
 ##     a chimera label -- and divergence is the one property a genuinely new lineage has.
 ##
-## Calibrated against labelled data rather than intuition (`data-raw/chimera_v2_eval.R`):
+## Calibrated against labeled data rather than intuition (`data-raw/chimera_v2_eval.R`):
 ## 200 real lineages leave-one-out as negatives, 200 synthetic chimeras spliced from real
 ## lineages with both parents left in the reference as positives. Negatives have median
 ## delta 1 (95th percentile 4); real chimeras median 18. At the shipped threshold of 8:

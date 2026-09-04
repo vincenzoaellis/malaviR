@@ -193,7 +193,7 @@ data(taxonomy)
 
 ### Phylogenies
 
-`sister_taxa()` returns the sister tips descending from nodes in a phylogeny. It was in the old version of `malaviR` and I've kept it here unchanged even though it more or less overlaps with functions in other phylogenetics R packges.
+`sister_taxa()` returns the sister tips descending from nodes in a phylogeny. It was in the old version of `malaviR` and I've kept it here unchanged even though it more or less overlaps with functions in other phylogenetics R packages.
 
 `clean_names()` strips the genus prefix from alignment tip labels. This was also in the older version of `malaviR` and can be useful for linking the alignment to the tables (alignment uses the genus prefix, tables do not).
 

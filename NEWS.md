@@ -1,3 +1,45 @@
+# malaviR 1.1.2
+
+Fixes from an independent code and biology review of 1.1.1. Two of them change
+answers users act on, so results from 1.1.1 and 1.1.2 are not comparable.
+
+**A match is only "exact" over enough shared sequence.** Distances are computed with
+pairwise deletion, so a reference sharing no determined position with the query also
+scores 0. That 0 was read as an exact match, and `lineage_qc()` reported the query as a
+known lineage on the strength of it: a 180 bp partial query with three real substitutions
+came back `known_lineage` against a reference sharing 6 positions with it, and a query of
+nothing but `N`s matched the first row of the alignment. With 3,338 of the 5,365 bundled
+sequences partial, and partial queries screened since 1.1.0, this was ordinary use.
+A distance-0 agreement now needs to rest on at least 60% of the query's determined
+positions, and references below that floor rank last whatever their distance. The floor is
+relative to the query rather than the fixed 300 positions used before, which a 180 bp query
+could never reach against any reference. Two new flags say what used to be called an exact
+match — `matches_known_lineage_over_short_overlap` and `no_comparable_reference_overlap` —
+and `summary` gains `n_comparable`, the overlap the distance was measured over.
+
+**`blast_malavi()` ranks by the alignment, not by the index score.** `top_n` was applied to
+the `SearchIndex` k-mer score before anything was aligned, and that score does not put an
+exact match first: `blast_malavi(<full SGS1>, top_n = 1)` returned `P_PADOM07` at 99.776%
+and never reported the 100% self-match. Every hit is now aligned before the cut. A new
+`ReferenceGapLength` column makes the counts reconcile for a query carrying an insertion.
+
+**Ten host species in `taxonomy` were matched to the wrong bird.** The family/order epithet
+step builds its pool from MalAvi's `FAMILY_NAME`, so where MalAvi files a genus under an old
+family a lone same-epithet member of the current family can win — *Tiaris obscura*, a
+Peruvian grassquit, had been matched to *Akialoa obscura*, an extinct Hawaiian honeycreeper.
+A genus-changing match is now checked against the families clootl files the MalAvi genus in.
+Separately, clootl's synonym columns hold semicolon-joined lists wherever another authority
+splits an eBird species, and whole-cell comparison could never see inside them; 153 MalAvi
+host names sit in one. Those are now searched, and a name found only inside a joined cell
+gets a `-lump` label, because the MalAvi host concept is then narrower than the eBird species
+it maps to.
+
+Smaller fixes: `extract_table("all")` skipped the whitespace tidy every single-table call
+applies (3,143 cells), and the tidy left non-breaking spaces in place; `sister_taxa()`
+dropped the third and later children of a polytomy; the invariant-site penalty in
+`lineage_qc()` could never fire; `frame_to_malavi()` aborted on an `NA` element and did not
+strip interior whitespace.
+
 # malaviR 1.1.1
 
 `match_taxonomy()` now warns when it is given species names without `family` and `order`.
@@ -9,7 +51,7 @@ previously skipped in silence. Called with a bare vector of names, 173 of MalAvi
 2,339 host binomials came back `none` that the same function resolves when called with no
 arguments, and nothing explained the difference.
 
-No matching behaviour changed. Either pass `family =` and `order =` alongside `species`,
+No matching behavior changed. Either pass `family =` and `order =` alongside `species`,
 or call `match_taxonomy()` with no arguments to use MalAvi's host list, which carries them.
 For MalAvi host names the resolved crosswalk is already shipped as `malaviR::taxonomy`.
 
@@ -44,7 +86,7 @@ sequence in the bundled alignment), ahead of its true relative at 38 mismatches 
 (92.0%) — naming a *Plasmodium* as the closest relative of a *Haemoproteus*.
 
 An exact match still wins whatever it covers: never reporting a known lineage as new
-outranks a tidier neighbour list.
+outranks a tidier neighbor list.
 
 ## The chimera screen now tests for chimeras
 

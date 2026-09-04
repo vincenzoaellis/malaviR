@@ -1,4 +1,4 @@
-test_that("synonymy_report summarises a small alignment", {
+test_that("synonymy_report summarizes a small alignment", {
   full    <- c("a", "t", "c", "g", "a", "t", "a", "c", "c", "g", "a")
   other   <- c("a", "c", "g", "g", "a", "g", "g", "t", "t", "g", "c")
   partial <- c("a", "t", "c", "g", "-", "-", "-", "c", "c", "g", "a")
