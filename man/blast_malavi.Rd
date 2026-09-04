@@ -19,21 +19,36 @@ gap (\code{-}) characters are removed; the sequence may be upper or lower case.}
 A \code{data.frame} of hits, best first, with columns \code{Lineage},
   \code{ProportionMatch}, \code{PercentMatch}, \code{AlignmentLength},
   \code{Matches}, \code{Mismatches}, \code{Score}, \code{QueryGapLength},
-  \code{ReferenceLineageLength}, and \code{ReferenceFullLength}.
-  \code{ReferenceLineageLength} is the position in the reference lineage where
-  the alignment ends (as reported by the original MalAvi BLAST app), whereas
-  \code{ReferenceFullLength} is the full length of the reference lineage
-  sequence; the two differ when the query aligns to only part of a reference.
-  If no hits are found, a one-row data frame of \code{NA}s is returned with a
-  warning.
+  \code{ReferenceGapLength}, \code{ReferenceLineageLength}, and
+  \code{ReferenceFullLength}. \code{AlignmentLength} counts alignment columns,
+  gap columns included, so \code{Matches + Mismatches + QueryGapLength +
+  ReferenceGapLength} equals it. \code{ReferenceLineageLength} is the position
+  in the reference lineage where the alignment ends (as reported by the original
+  MalAvi BLAST app), whereas \code{ReferenceFullLength} is the full length of the
+  reference lineage sequence; the two differ when the query aligns to only part of
+  a reference. If no hits are found, a one-row data frame of \code{NA}s is
+  returned with a warning.
 }
 \description{
 Finds the MalAvi lineages most similar to a query DNA sequence against the
 database bundled in the package. This uses \pkg{DECIPHER}: the bundled,
 pre-built inverted index is searched with \code{DECIPHER::SearchIndex} and the
-top hits are aligned to the query with \code{DECIPHER::AlignPairs}.
+hits are aligned to the query with \code{DECIPHER::AlignPairs}.
 }
 \details{
+Every hit the index returns is aligned, and \code{top_n} is applied to the
+\emph{alignment} ranking. The index score is a k-mer heuristic that does not
+reliably rank an exact match first -- before version 1.1.2 \code{top_n} was
+applied to it, so \code{blast_malavi(seq, top_n = 1)} could miss the lineage
+the query came from.
+
+Ranking cannot separate hits the alignment cannot separate. A short query is
+often identical to many lineages over its own length -- a 200 bp fragment of
+\code{P_SGS1} matches about 40 lineages at 100\% -- and \code{top_n} then shows
+an arbitrary few of them. Raise \code{top_n} when the top hits all report the
+same \code{PercentMatch}, and see \code{\link{synonymy_report}} for why
+distinct MalAvi names can carry the same sequence.
+
 \pkg{DECIPHER} (>= 3.0) and \pkg{Biostrings} are required and must be
 installed from Bioconductor:
 \code{BiocManager::install(c("DECIPHER", "Biostrings"))}. DECIPHER >= 3.0
