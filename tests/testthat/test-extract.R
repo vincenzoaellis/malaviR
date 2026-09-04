@@ -50,3 +50,28 @@ test_that("extract_alignment returns a DNAbin and subsets by genus", {
   expect_true(all(grepl("^(P|H)_", rownames(ph))))
   expect_gt(nrow(ph), nrow(p))
 })
+
+test_that('extract_table("all") returns the same tables as the single-table calls', {
+  ## Until 1.1.2 the "all" branch handed back the raw bundled tables while every
+  ## single-table call tidied whitespace, so the same table differed in 3,143
+  ## cells depending on how it was asked for -- and a host-name join built from
+  ## the list silently missed the rows with a stray newline.
+  all5 <- extract_table("all")
+  for (nm in names(all5)) {
+    expect_identical(all5[[nm]], extract_table(nm), info = nm)
+  }
+})
+
+test_that("the whitespace tidy also removes non-breaking spaces", {
+  ## [[:space:]] does not match U+00A0, so 22 GENBANK_ACC values in the
+  ## 2026-03-23 release kept an invisible leading non-breaking space that
+  ## trimws() could not take off and that breaks an accession join.
+  nbsp <- " "
+  g <- extract_table("Grand Lineage Summary")
+  expect_false(any(grepl(nbsp, g$GENBANK_ACC, fixed = TRUE), na.rm = TRUE))
+
+  ## and directly, so the test does not depend on this release still having them
+  df <- data.frame(x = c(paste0(nbsp, "AB123"), "  spaced\tout\n "),
+                   stringsAsFactors = FALSE)
+  expect_equal(malaviR:::.clean_table_ws(df)$x, c("AB123", "spaced out"))
+})

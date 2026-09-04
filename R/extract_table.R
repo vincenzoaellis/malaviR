@@ -24,7 +24,8 @@
 #' The returned tables also have their character columns whitespace-tidied: any
 #' run of whitespace (including stray line breaks and tabs that the source
 #' spreadsheets embed in free-text fields such as \code{SPECIES_NAME} or
-#' \code{COMMENT}) is collapsed to a single space and the ends are trimmed. This
+#' \code{COMMENT}, and non-breaking spaces, which some \code{GENBANK_ACC} values
+#' begin with) is collapsed to a single space and the ends are trimmed. This
 #' only repairs formatting -- it never changes a value's identity -- but it keeps
 #' e.g. host-name joins and distinct-species counts from being broken by an
 #' invisible trailing newline. \code{NA} values are preserved.
@@ -70,6 +71,11 @@ extract_table <- function(table = "Hosts and Sites Table", version = "latest") {
   if (table == "all") {
     tabs <- db[c("hosts_and_sites", "grand_lineage_summary", "morpho_species",
                  "references", "vector_data")]
+    ## Tidy here too. Until version 1.1.2 the "all" branch returned the raw
+    ## bundled tables while every single-table call tidied, so the same table
+    ## differed in 3,143 cells depending on how it was asked for -- and the
+    ## documentation described the tidy without qualification.
+    tabs <- lapply(tabs, .clean_table_ws)
     ## stamp the bundled version onto each table (and the list) as a provenance
     ## attribute; the descriptive table label is deliberately not stamped so that
     ## e.g. extract_table("references") == extract_table("Table of References")

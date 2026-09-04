@@ -43,7 +43,8 @@ bundled data; all other values are verbatim from MalAvi.
 The returned tables also have their character columns whitespace-tidied: any
 run of whitespace (including stray line breaks and tabs that the source
 spreadsheets embed in free-text fields such as \code{SPECIES_NAME} or
-\code{COMMENT}) is collapsed to a single space and the ends are trimmed. This
+\code{COMMENT}, and non-breaking spaces, which some \code{GENBANK_ACC} values
+begin with) is collapsed to a single space and the ends are trimmed. This
 only repairs formatting -- it never changes a value's identity -- but it keeps
 e.g. host-name joins and distinct-species counts from being broken by an
 invisible trailing newline. \code{NA} values are preserved.

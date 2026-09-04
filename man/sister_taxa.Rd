@@ -16,19 +16,31 @@ is an error.}
 }
 \value{
 A \code{data.frame} with columns \code{ancestral.node} (the node
-  supplied), \code{sister.clade} (1 or 2, labelling the node's two immediate
-  descendant clades), and \code{taxa} (tip label). One row per descending tip.
+  supplied), \code{sister.clade} (1, 2, ... labeling the node's immediate
+  descendant clades in edge order), and \code{taxa} (tip label). One row per
+  descending tip.
 }
 \description{
-For an internal node, returns the tips descending from each of its two
-immediate descendant clades, labelled as sister clade 1 or 2. This is useful,
+For an internal node, returns the tips descending from each of its immediate
+descendant clades, labeled as sister clade 1, 2, and so on. This is useful,
 for example, for comparing the hosts or traits of sister lineages in a
 parasite phylogeny (Ellis and Bensch 2018). One or several nodes may be
 supplied.
 }
+\details{
+A bifurcating node -- the usual case -- gives two sister clades. At a polytomy
+every descendant is sister to every other, so a node with three or more
+children gives that many groups rather than two. (Before version 1.1.2 only
+the first two were returned, with nothing to say the rest had been dropped.)
+A node with a single descendant has no sister groups and is an error.
+}
 \examples{
 tree <- ape::read.tree(text = "((A,B),(C,(D,E)));")
 sister_taxa(tree, node = 8)
+
+## at a polytomy, every descendant is returned as its own sister group
+poly <- ape::read.tree(text = "((A,B),(C,D,E));")
+sister_taxa(poly, node = 8)
 }
 \references{
 Ellis VA, Bensch S (2018). Host specificity of avian haemosporidian parasites

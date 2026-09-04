@@ -433,3 +433,29 @@ test_that("summary reports the overlap the nearest distance was measured over", 
   expect_equal(qc$summary$n_comparable, qc$nearest$n_comparable[1])
   expect_gt(qc$summary$n_comparable, 0)
 })
+
+test_that("a change at an invariant site is scored as one, not as an unobserved base", {
+  ## .qc_score_site() required the query base to have been observed before it
+  ## could call a change an invariant-site change. At an invariant site only one
+  ## base has ever been seen, so that test was always FALSE: from 1.1.0 to 1.1.1
+  ## the weight-4 penalty and the N_changes_at_invariant_sites flag could not fire
+  ## at all, while the mutations table reported the same base as an invariant-site
+  ## change. The two disagreed about the same position.
+  aln <- ape::as.DNAbin(rbind(
+    r1 = strsplit("aaacccgggttt", "")[[1]],
+    r2 = strsplit("aaacccgggttt", "")[[1]],
+    r3 = strsplit("aaacccgggtta", "")[[1]]))
+  profile <- build_malavi_site_profile(aln)
+  expect_true(profile$invariant[1])              # position 1 is invariant "A"
+
+  query <- "gaacccgggttt"                        # G at the invariant first position
+  ## the internal scorer works on the upper-cased query lineage_qc() hands it
+  scored <- malaviR:::.qc_score_site(strsplit(toupper(query), "")[[1]], profile)
+  expect_equal(scored$site_flags[1], "invariant_site_change")
+
+  qc <- lineage_qc(query, reference = aln, expected_length = 12,
+                   chimera_check = FALSE)
+  expect_equal(unname(qc$counts["n_invariant_site_changes"]), 1L)
+  expect_equal(unname(qc$counts["n_bases_never_observed"]), 0L)
+  expect_true(any(grepl("changes_at_invariant_sites", qc$flags)))
+})

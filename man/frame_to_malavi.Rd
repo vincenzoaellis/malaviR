@@ -34,9 +34,11 @@ the bundled data).}
 length: \code{"set_na"} (default) returns \code{NA} for them (so the caller
 can drop them and screen only the framed ones, and report the rest as
 off-length); \code{"error"} stops; \code{"keep"} returns the original
-(un-framed) sequence.}
+sequence, upper-cased and stripped of whitespace but not padded. An
+\code{NA} element is always returned as \code{NA}, with a warning, whatever
+this is set to: a missing sequence is missing rather than off-length.}
 
-\item{pad_char}{Character used for padding (default \code{"N"}).}
+\item{pad_char}{Single character used for padding (default \code{"N"}).}
 }
 \value{
 A character vector the same length as \code{seqs}: each clean ASV

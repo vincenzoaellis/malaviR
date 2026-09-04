@@ -88,7 +88,12 @@
 .clean_table_ws <- function(df) {
   char_cols <- which(vapply(df, is.character, logical(1)))
   for (j in char_cols) {
-    df[[j]] <- trimws(gsub("[[:space:]]+", " ", df[[j]]))
+    ## PCRE rather than the POSIX class: [[:space:]] leaves a non-breaking space
+    ## (U+00A0) in place, and the release has them -- 22 GENBANK_ACC values in the
+    ## 2026-03-23 release begin with one. They are invisible, survive trimws(), and
+    ## break an accession join exactly the way a stray newline breaks a name join.
+    ## \h covers the horizontal spaces including U+00A0, \v the vertical ones.
+    df[[j]] <- trimws(gsub("[\\s\\h\\v]+", " ", df[[j]], perl = TRUE))
   }
   df
 }
@@ -758,8 +763,15 @@
   flags <- rep("ok", L)
   flags[!valid] <- "ambiguous_or_invalid"
   flags[valid & !observed] <- "base_never_observed_at_site"
-  invariant_change <- valid & observed & profile$invariant &
-    qchars != profile$major_base
+  ## Deliberately NOT conditioned on `observed`. At an invariant site only one
+  ## base has been seen, so any query base that differs from the major base is by
+  ## definition unobserved there; requiring `observed` made this test always
+  ## FALSE, and the weight-4 invariant-site penalty and its flag were unreachable
+  ## from version 1.1.0 to 1.1.1 while the mutations table reported the change
+  ## anyway. The assignment order is what separates the two categories: an
+  ## invariant-site change is the more specific and the more suspicious of the
+  ## two statements, so it overwrites the never-observed flag set just above.
+  invariant_change <- valid & profile$invariant & qchars != profile$major_base
   flags[invariant_change] <- "invariant_site_change"
   rare <- valid & observed & !profile$invariant & p < rare_freq
   flags[rare] <- "rare_base_at_site"

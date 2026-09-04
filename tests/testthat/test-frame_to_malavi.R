@@ -76,3 +76,41 @@ test_that("an unknown built-in primer name is rejected", {
   expect_error(frame_to_malavi(clean_seq(478), primer = "galen"),
                "must be one of")
 })
+
+test_that("an NA sequence is returned as NA instead of aborting the call", {
+  ## nchar(NA) is NA, and an NA in a subscripted assignment is an error, so one
+  ## empty cell in an ASV table used to kill the whole call with
+  ## "NAs are not allowed in subscripted assignments".
+  good <- paste(rep("A", 478), collapse = "")
+  expect_warning(res <- frame_to_malavi(c(ok = good, missing = NA), primer = "haem"),
+                 "are NA")
+  expect_equal(nchar(res[["ok"]]), 479L)
+  expect_true(is.na(res[["missing"]]))
+  expect_equal(names(res), c("ok", "missing"))
+})
+
+test_that("an NA stays NA even when off-length sequences are kept", {
+  good <- paste(rep("A", 478), collapse = "")
+  short <- paste(rep("A", 400), collapse = "")
+  res <- suppressWarnings(
+    frame_to_malavi(c(ok = good, short = short, missing = NA),
+                    primer = "haem", on_off_length = "keep"))
+  expect_equal(res[["short"]], short)     # kept
+  expect_true(is.na(res[["missing"]]))    # not kept, because it is not a sequence
+})
+
+test_that("interior whitespace is stripped, not treated as extra length", {
+  ## The documentation says whitespace is stripped; trimws() only took the ends,
+  ## so a 478 bp sequence with one internal space was reported off-length.
+  good <- paste(rep("A", 478), collapse = "")
+  spaced <- paste0(substr(good, 1, 200), " \n\t", substr(good, 201, 478))
+  res <- frame_to_malavi(spaced, primer = "haem")
+  expect_equal(nchar(res), 479L)
+  expect_equal(res, frame_to_malavi(good, primer = "haem"))
+})
+
+test_that("pad_char must be a single character", {
+  good <- paste(rep("A", 478), collapse = "")
+  expect_error(frame_to_malavi(good, primer = "haem", pad_char = "NN"),
+               "single character")
+})

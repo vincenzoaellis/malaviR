@@ -58,8 +58,10 @@
 #'   length: \code{"set_na"} (default) returns \code{NA} for them (so the caller
 #'   can drop them and screen only the framed ones, and report the rest as
 #'   off-length); \code{"error"} stops; \code{"keep"} returns the original
-#'   (un-framed) sequence.
-#' @param pad_char Character used for padding (default \code{"N"}).
+#'   sequence, upper-cased and stripped of whitespace but not padded. An
+#'   \code{NA} element is always returned as \code{NA}, with a warning, whatever
+#'   this is set to: a missing sequence is missing rather than off-length.
+#' @param pad_char Single character used for padding (default \code{"N"}).
 #' @return A character vector the same length as \code{seqs}: each clean ASV
 #'   padded to \code{reference_length} bp, off-length ASVs handled per
 #'   \code{on_off_length}. Off-length ASVs trigger a warning (or error) giving
@@ -94,6 +96,10 @@ frame_to_malavi <- function(seqs,
   on_off_length <- match.arg(on_off_length)
   if (!is.character(seqs))
     stop("`seqs` must be a character vector of ASV sequences.", call. = FALSE)
+  ## a two-character pad would make every framed sequence the wrong length, and
+  ## nothing downstream would say why
+  if (!is.character(pad_char) || length(pad_char) != 1L || nchar(pad_char) != 1L)
+    stop("`pad_char` must be a single character.", call. = FALSE)
   reference_length <- as.integer(reference_length)
 
   ## --- resolve the covered window ------------------------------------------
@@ -139,15 +145,31 @@ frame_to_malavi <- function(seqs,
   clean_len <- frame_end - frame_start + 1L
 
   ## --- frame the clean ASVs ------------------------------------------------
-  s        <- toupper(trimws(seqs))
-  is_clean <- nchar(s) == clean_len
+  ## All whitespace is removed, not just the ends: a sequence pasted out of a
+  ## spreadsheet or a FASTA viewer can carry interior spaces or line breaks, and
+  ## trimws() alone left those in, so a 478 bp ASV with one internal space was
+  ## reported off-length and thrown away.
+  s <- toupper(gsub("[[:space:]]+", "", seqs))
+
+  ## `is_clean` must never be NA: nchar(NA) is NA, and an NA in a subscripted
+  ## assignment is an error, so a single missing cell in an ASV table used to
+  ## abort the whole call with "NAs are not allowed in subscripted assignments".
+  ## A missing sequence is missing, not off-length, so it is reported separately
+  ## and passed through as NA whatever `on_off_length` says.
+  is_missing <- is.na(s)
+  is_clean   <- !is_missing & nchar(s) == clean_len
 
   framed <- rep(NA_character_, length(s))
   framed[is_clean] <- paste0(strrep(pad_char, left_pad),
                              s[is_clean],
                              strrep(pad_char, right_pad))
 
-  n_off <- sum(!is_clean)
+  if (any(is_missing)) {
+    warning(sprintf("%d of %d sequence(s) are NA and were returned as NA.",
+                    sum(is_missing), length(s)), call. = FALSE)
+  }
+
+  n_off <- sum(!is_clean & !is_missing)
   if (n_off > 0L) {
     msg <- sprintf(paste0("%d of %d sequence(s) are not the expected clean ",
                           "length (%d bp, = frame positions %d-%d) and were not ",
@@ -157,7 +179,8 @@ frame_to_malavi <- function(seqs,
                    n_off, length(s), clean_len, frame_start, frame_end)
     if (on_off_length == "error") stop(msg, call. = FALSE)
     warning(msg, call. = FALSE)
-    if (on_off_length == "keep") framed[!is_clean] <- s[!is_clean]
+    if (on_off_length == "keep") framed[!is_clean & !is_missing] <-
+      s[!is_clean & !is_missing]
     ## "set_na" (default): leave NA so the caller filters to screenable ASVs
   }
 

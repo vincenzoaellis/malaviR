@@ -79,3 +79,35 @@ test_that("a missing or non-numeric node is rejected", {
   expect_error(sister_taxa(two_cherries), "node")
   expect_error(sister_taxa(two_cherries, node = "6"), "node")
 })
+
+test_that("a polytomy returns every descendant, not just the first two", {
+  ## Before 1.1.2 the two children were read out of the edge matrix by position,
+  ## so the third and later children of a polytomy were dropped with nothing said.
+  ## On ((A,B),(C,D,E)) the node above C, D and E returned C and D only.
+  tree <- ape::read.tree(text = "((A,B),(C,D,E));")
+  ## the node with three child edges
+  node <- as.integer(names(which(table(tree$edge[, 1]) == 3)))
+
+  res <- sister_taxa(tree, node = node)
+  expect_setequal(res$taxa, c("C", "D", "E"))
+  expect_equal(sort(unique(res$sister.clade)), 1:3)
+  expect_equal(nrow(res), 3L)
+})
+
+test_that("a bifurcating polytomy-free tree is unaffected by the generalization", {
+  ## The behavior the reviewers verified must be preserved exactly.
+  tree <- ape::read.tree(text = "((A,B),(C,(D,E)));")
+  res  <- sister_taxa(tree, node = 8)
+  expect_equal(res$sister.clade, c(1, 2, 2))
+  expect_equal(res$taxa, c("C", "D", "E"))
+  expect_true(all(res$ancestral.node == 8))
+})
+
+test_that("a node with a single descendant is refused with a clear message", {
+  ## It used to reach the edge matrix and fail with "incorrect number of
+  ## dimensions", which says nothing about the tree.
+  single <- ape::read.tree(text = "(A,(B));")
+  n <- as.integer(names(which(table(single$edge[, 1]) == 1)))
+  expect_length(n, 1L)                      # ape keeps the singleton node
+  expect_error(sister_taxa(single, node = n), "no sister groups")
+})
