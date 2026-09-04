@@ -446,32 +446,75 @@
   qcode
 }
 
+## Minimum overlap, as a fraction of the query's determined positions, before a
+## reference's comparison with the query is trusted.
+##
+## The gate is RELATIVE to the query, not a fixed number of positions. Until
+## version 1.1.2 it was a fixed 300, which made it a no-op for exactly the queries
+## that need it: a 180 bp partial query can never reach 300 comparable positions
+## against ANY reference, so every reference counted as thin and the guard stopped
+## discriminating. Expressed as a fraction, the same rule applies at every query
+## length. For a full-length 479 bp query the floor is 288 positions -- essentially
+## the fixed 300 used before -- and 81 of the 5,365 sequences in the bundled
+## alignment fall below it (1.5%); the median reference overlap is 478.
+.QC_MIN_COMPARABLE_FRACTION <- 0.6
+
+## Positions a reference must share with the query before its comparison counts.
+## `q_known` is the number of positions the QUERY has an unambiguous base at. The
+## floor is never 0: a reference that shares nothing with the query must always
+## fail, including when the query itself is entirely unknown (an all-N query, where
+## `q_known` is 0 and every reference would otherwise pass a floor of 0).
+.qc_min_comparable <- function(q_known) {
+  max(1L, as.integer(ceiling(.QC_MIN_COMPARABLE_FRACTION * q_known)))
+}
+
 ## Nearest reference lineages to a coded query, by Hamming distance computed
 ## only over positions where BOTH the query and the reference carry an
 ## unambiguous base (gaps/Ns are skipped). Vectorized over all references at
-## once: no per-reference re-parsing. Returns a data.frame ordered by ascending
-## distance with columns lineage, distance, n_comparable, and index (row in
-## refcode).
+## once: no per-reference re-parsing. Returns a data.frame ordered as described
+## below with columns lineage, distance, n_comparable, and index (row in refcode).
 ##
-## Tie-break note: distance uses pairwise deletion -- a position where the
-## reference carries an N/gap is skipped, not counted as a mismatch. That is
-## deliberate, so genuinely partial reference entries (e.g. lineages whose MalAvi
-## record is terminally gapped) can still match a full-length query. But it also
-## means a reference that is identical to the query EXCEPT for a single ambiguous
-## base ties a true, fully-overlapping exact match at distance 0: the ambiguous
-## position is simply dropped from the comparison. With only `order(distance)` the
-## winner among such ties was then decided by arbitrary alignment order, which
-## could report the ambiguous near-twin (e.g. P_CARCAR11, which carries one N) in
-## place of the genuine exact match (P_SEIAUR01) -- silently mislabeling a perfect
-## ASV. We therefore break ties by DESCENDING number of comparable positions, so
-## the most-complete match wins: a real exact match is never displaced by an
-## N-padded one, while a uniquely-matching partial entry (the only candidate at
-## its distance) still wins because it has no competitor to lose the tie to.
-## Minimum overlap before a reference's mismatch RATE is trusted for ranking. 92 of the
-## 5,365 sequences in the bundled alignment fall below it (1.7%); the median overlap is 478.
-.QC_MIN_COMPARABLE <- 300L
-
-
+## ORDERING: order(exact, thin, rate, -n_comparable), i.e.
+##   1. exact matches backed by enough overlap, then
+##   2. references that share enough of the query, by ascending mismatch RATE, then
+##   3. references that share too little of the query, again by rate,
+##   with ties at every level broken by descending overlap.
+##
+## Three separate problems shaped this, and each of the keys answers one of them.
+##
+## RATE, not count (`rate`). Ordering on the raw mismatch count lets a reference that
+## overlaps the query in few positions win simply by having less to disagree over.
+## Measured on a real submission (2026-08-20): a candidate lineage was reported nearest
+## to a reference with 23 mismatches over only 133 comparable positions -- 82.7%
+## identity, and that reference is the least-covered sequence in the bundled alignment.
+## Its true nearest relative had 38 mismatches over 477 positions: 92.0% identity, and
+## the clade the lineage actually belongs to. Reporting the first as "nearest" pointed a
+## curator at the wrong genus.
+##
+## ENOUGH OVERLAP BEFORE A MATCH IS EVIDENCE (`exact`, `thin`). Distance uses pairwise
+## deletion, so a position where either sequence is N or a gap is skipped rather than
+## counted as a mismatch. That is deliberate -- genuinely partial reference entries have
+## to be able to match a full-length query -- but it means a reference that shares NO
+## determined position with the query also has distance 0. Before 1.1.2 the exact bucket
+## was `distance == 0` alone, so such a reference sorted ahead of every reference that
+## actually disagrees somewhere, and lineage_qc() called the query a known lineage. Two
+## confirmed cases: a 180 bp partial query with three real substitutions was reported
+## exactly matching a reference sharing 6 positions with it, and an all-N query matched
+## alignment row 1 over 0 positions. Since partial queries began to be placed and screened
+## (2026-08-20) this is ordinary use, not a corner case: 3,338 of the 5,365 bundled
+## sequences are partial. So a distance-0 agreement only enters the exact bucket when it
+## rests on at least `.qc_min_comparable(q_known)` shared positions, and references below
+## that floor sort last whatever their distance. They are ordered, not dropped, and
+## `n_comparable` is returned so the caller can see how much a match rests on.
+##
+## TIES AMONG GENUINE EXACT MATCHES (`-n_comparable`). A reference identical to the query
+## except for a single ambiguous base ties a true, fully-overlapping exact match at
+## distance 0, because the ambiguous position is dropped from the comparison. With only
+## `order(distance)` the winner was then decided by arbitrary alignment order, which could
+## report the ambiguous near-twin (e.g. P_CARCAR11, which carries one N) in place of the
+## genuine exact match (P_SEIAUR01) -- silently mislabeling a perfect ASV. Breaking ties by
+## DESCENDING overlap makes the most-complete match win, while a uniquely-matching partial
+## entry still wins because it has no competitor to lose the tie to.
 .qc_nearest <- function(qcode, refcode, ref_names, top_n = 5L) {
   n <- nrow(refcode)
   L <- ncol(refcode)
@@ -481,24 +524,12 @@
   distance <- rowSums(mism)
   n_comparable <- rowSums(both_known)              # positions actually compared
 
-  ## Rank by RATE of mismatch, not by count.
-  ##
-  ## Ordering on the raw count lets a reference that overlaps the query in few positions
-  ## win simply by having less to disagree over. Measured on a real submission
-  ## (2026-08-20): a candidate lineage was reported nearest to a reference with 23
-  ## mismatches over only 133 comparable positions -- 82.7% identity, and that reference is
-  ## the least-covered sequence in the bundled alignment. Its true nearest relative had 38
-  ## mismatches over 477 positions: 92.0% identity, and the clade the lineage belongs to.
-  ## Reporting the first as "nearest" pointed a curator at the wrong genus.
-  ##
-  ## An exact match still wins whatever it covers: `exact_match_to_known_lineage` is
-  ## decided from `distance[1]`, and never reporting a known lineage as new outranks a
-  ## tidier neighbour list. Below that, references covering less than
-  ## `.QC_MIN_COMPARABLE` of the query sort after those that cover more, so a handful of
-  ## overlapping positions cannot outrank a full-length relative; they are ordered, not
-  ## dropped, and `n_comparable` is returned so the caller can see why a match is weak.
-  exact <- as.integer(distance > 0L)
-  thin  <- as.integer(distance > 0L & n_comparable < .QC_MIN_COMPARABLE)
+  ## how much of the query a reference must cover before its comparison is trusted
+  min_comparable <- .qc_min_comparable(sum(qcode > 0L))
+  enough <- n_comparable >= min_comparable
+
+  exact <- as.integer(!(distance == 0L & enough))  # 0 sorts first, so 0 == "exact"
+  thin  <- as.integer(!enough)
   rate  <- ifelse(n_comparable > 0L, distance / pmax(n_comparable, 1L), Inf)
   ord <- order(exact, thin, rate, -n_comparable)
   ord <- ord[seq_len(min(top_n, n))]

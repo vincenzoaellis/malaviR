@@ -147,6 +147,17 @@ build_malavi_site_profile <- function(reference = NULL, version = "latest",
 #'     \code{moderately_divergent_from_known_lineages},
 #'     \code{highly_divergent_from_known_lineages}}{how far the query sits from the
 #'     nearest known lineage.}
+#'   \item{\code{matches_known_lineage_over_short_overlap}}{the query agrees with
+#'     a known lineage at every position the two can be compared at, but those
+#'     positions cover too little of the query (less than 60\% of its determined
+#'     bases) to call it that lineage. The query is \emph{compatible} with the
+#'     lineage, not identified as it; \code{n_comparable} in \code{summary} gives
+#'     the overlap. Sequence the rest of the barcode before deciding. Distances are
+#'     computed with pairwise deletion, so this is what a partial query looks like
+#'     against a reference determined in a different part of the window.}
+#'   \item{\code{no_comparable_reference_overlap}}{no reference shares a single
+#'     determined position with the query, so \code{nearest_distance} is \code{NA}
+#'     and no distance-based flag is given. A query that is all \code{N}s does this.}
 #'   \item{\code{N_changes_at_invariant_sites}}{changes at sites that never vary
 #'     in MalAvi (very suspicious).}
 #'   \item{\code{N_bases_never_observed_at_their_sites}}{bases never seen at that
@@ -195,7 +206,9 @@ build_malavi_site_profile <- function(reference = NULL, version = "latest",
 #'   haemosporidians.
 #' @return An object of class \code{malavi_lineage_qc}: a list with
 #'   \describe{
-#'     \item{\code{call}}{the overall verdict: \code{known_lineage} (exact match),
+#'     \item{\code{call}}{the overall verdict: \code{known_lineage} (an exact match
+#'       covering enough of the query -- see \code{matches_known_lineage_over_short_overlap}
+#'       under \emph{Flags} for what happens when it does not),
 #'       \code{plausible_new_lineage}, \code{review}, \code{strong_warning},
 #'       \code{possible_error}, \code{possible_chimera}, or
 #'       \code{invalid_or_strong_warning} / \code{invalid_sequence}.}
@@ -203,8 +216,11 @@ build_malavi_site_profile <- function(reference = NULL, version = "latest",
 #'       0 = suspicious). Artifact risk is simply \code{1 - score}.}
 #'     \item{\code{summary}}{a one-row data frame with \code{call}, \code{score},
 #'       the \code{nearest_lineage} and \code{nearest_distance} (Hamming distance
-#'       to it), \code{n_mutations} versus that lineage, of which
-#'       \code{n_nonsynonymous} change the protein, and \code{n_stop_codons}.}
+#'       to it), \code{n_comparable} (how many positions that distance was measured
+#'       over -- a distance of 0 across 6 shared positions is a much weaker statement
+#'       than the same distance across 478), \code{n_mutations} versus that lineage,
+#'       of which \code{n_nonsynonymous} change the protein, and
+#'       \code{n_stop_codons}.}
 #'     \item{\code{flags}}{the character vector of warnings (see \emph{Flags}).}
 #'     \item{\code{counts}}{a named integer vector with the full per-category
 #'       counts behind the score (invariant-site changes, never-observed bases,
@@ -329,6 +345,7 @@ lineage_qc <- function(query, reference = NULL, site_profile = NULL,
     out <- list(
       summary = data.frame(call = "invalid_sequence", score = 0,
                            nearest_lineage = NA_character_, nearest_distance = NA_real_,
+                           n_comparable = NA_integer_,
                            n_mutations = NA_integer_, n_nonsynonymous = NA_integer_,
                            n_stop_codons = NA_integer_, stringsAsFactors = FALSE),
       call = "invalid_sequence", score = 0, flags = unique(flags),
@@ -381,8 +398,29 @@ lineage_qc <- function(query, reference = NULL, site_profile = NULL,
   ## ---- nearest known lineage ----
   qcode   <- .qc_code_vec(qchars)
   nearest <- .qc_nearest(qcode, refcode, ref_names, top_n = 5L)
-  min_distance <- nearest$distance[1]
-  if (min_distance == 0) {
+  min_distance   <- nearest$distance[1]
+  min_comparable <- nearest$n_comparable[1]
+
+  ## How far the query sits from the nearest known lineage -- but only once we know
+  ## the comparison rests on enough shared positions to mean anything.
+  ##
+  ## Distance is computed with pairwise deletion, so a reference sharing no determined
+  ## position with the query also scores 0. Before 1.1.2 that 0 was read as an exact
+  ## match, and the query came back `known_lineage` on the strength of an overlap of 6
+  ## positions -- or of none at all. `.qc_min_comparable()` is the same floor
+  ## `.qc_nearest()` ranks by, so the flag agrees with the ordering that produced it.
+  enough_comparable <- .qc_min_comparable(sum(qcode > 0L))
+  if (min_comparable == 0L) {
+    ## Nothing was compared. The distance is not a number the user should act on,
+    ## and neither is the lineage name attached to it: every reference tied at 0
+    ## comparable positions and the winner is simply the first row of the alignment.
+    flags <- c(flags, "no_comparable_reference_overlap")
+    min_distance <- NA_integer_
+  } else if (min_distance == 0 && min_comparable < enough_comparable) {
+    ## agrees everywhere the two sequences can be compared, but over too little of the
+    ## query to call it that lineage: compatible, not identified
+    flags <- c(flags, "matches_known_lineage_over_short_overlap")
+  } else if (min_distance == 0) {
     flags <- c(flags, "exact_match_to_known_lineage")
   } else if (min_distance <= settings$near_known_distance) {
     flags <- c(flags, "near_known_lineage")
@@ -475,7 +513,11 @@ lineage_qc <- function(query, reference = NULL, site_profile = NULL,
 
   summary <- data.frame(
     call = call, score = score,
-    nearest_lineage = nearest$lineage[1], nearest_distance = min_distance,
+    nearest_lineage = if (min_comparable == 0L) NA_character_ else nearest$lineage[1],
+    nearest_distance = min_distance,
+    ## how many positions that distance was measured over: a distance of 0 backed by
+    ## 6 comparable positions is a different statement from one backed by 478
+    n_comparable = min_comparable,
     n_mutations = n_mutations, n_nonsynonymous = n_nonsynonymous,
     n_stop_codons = n_stop_codons, stringsAsFactors = FALSE
   )
@@ -519,7 +561,8 @@ print.malavi_lineage_qc <- function(x, ...) {
   } else {
     s <- x$summary
     cat("  nearest lineage:     ", s$nearest_lineage,
-        "  (distance ", s$nearest_distance, ")\n", sep = "")
+        "  (distance ", s$nearest_distance,
+        " over ", s$n_comparable, " comparable positions)\n", sep = "")
     cat("  mutations vs nearest: ", s$n_mutations,
         "  (", s$n_nonsynonymous, " nonsynonymous, ",
         s$n_stop_codons, " stop codons)\n", sep = "")

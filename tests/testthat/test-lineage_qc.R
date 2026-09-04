@@ -261,9 +261,31 @@ test_that("the nearest lineage is ranked by rate of mismatch, not by count", {
   expect_gt(got$n_comparable[1], got$n_comparable[2])
 })
 
-test_that("an exact match outranks a better-covered near match", {
+test_that("an exact match outranks a better-covered near match when it covers the query", {
   ## Load-bearing: exact_match_to_known_lineage is decided from distance[1], and never
-  ## reporting a known lineage as new outranks a tidier neighbour list.
+  ## reporting a known lineage as new outranks a tidier neighbor list. That protection
+  ## is kept -- but only for an exact match that actually covers the query. Here the
+  ## exact reference is determined at 400 of the query's 479 positions, well above the
+  ## 60% floor, so it still beats a fully-overlapping reference that differs by one base.
+  refcode <- rbind(
+    c(rep(1L, 400), rep(0L, 79)),                      # exact over 400 of 479 positions
+    c(rep(1L, 478), 2L)                                # 1 mismatch over all 479
+  )
+  qcode <- rep(1L, 479)
+  got <- malaviR:::.qc_nearest(qcode, refcode, c("exact_covering", "near_full"), top_n = 2L)
+
+  expect_equal(got$lineage[1], "exact_covering")
+  expect_equal(got$distance[1], 0)
+  expect_equal(got$n_comparable[1], 400)
+})
+
+test_that("an exact match over too little of the query does NOT outrank a real neighbor", {
+  ## The other half of the rule above, and the bug it fixes. Distance uses pairwise
+  ## deletion, so a reference determined at only 60 of the query's 479 positions has
+  ## distance 0 there and, before version 1.1.2, sorted ahead of every reference that
+  ## disagrees anywhere -- which lineage_qc() then reported as `known_lineage`. 60
+  ## positions is 12.5% of the query, far below the 60% floor, so the genuine neighbor
+  ## must win. The thin reference is still reported, just not first.
   refcode <- rbind(
     c(rep(1L, 60), rep(0L, 419)),                      # exact over only 60 positions
     c(rep(1L, 478), 2L)                                # 1 mismatch over all 479
@@ -271,8 +293,45 @@ test_that("an exact match outranks a better-covered near match", {
   qcode <- rep(1L, 479)
   got <- malaviR:::.qc_nearest(qcode, refcode, c("exact_thin", "near_full"), top_n = 2L)
 
-  expect_equal(got$lineage[1], "exact_thin")
-  expect_equal(got$distance[1], 0)
+  expect_equal(got$lineage[1], "near_full")
+  expect_equal(got$distance[1], 1)
+  expect_equal(got$lineage[2], "exact_thin")           # reported, not dropped
+  expect_equal(got$n_comparable[2], 60)                # and its weak overlap is visible
+})
+
+test_that("a reference sharing no determined position with the query ranks last", {
+  ## The extreme case of the same bug: pairwise deletion gives a reference that overlaps
+  ## the query nowhere a distance of 0, because there is nothing to disagree about. It
+  ## used to sort first. It must now sort last, behind a reference that genuinely differs.
+  refcode <- rbind(
+    c(rep(0L, 240), rep(1L, 239)),                     # determined only where the query is not
+    c(rep(1L, 235), 2L, rep(0L, 243))                  # overlaps the query, 1 mismatch
+  )
+  qcode <- c(rep(1L, 240), rep(0L, 239))               # determined in positions 1-240 only
+  got <- malaviR:::.qc_nearest(qcode, refcode, c("no_overlap", "overlapping"), top_n = 2L)
+
+  expect_equal(got$lineage[1], "overlapping")
+  expect_equal(got$lineage[2], "no_overlap")
+  expect_equal(got$n_comparable[2], 0)
+})
+
+test_that("the overlap floor scales with the query, so it still bites on a partial query", {
+  ## Before 1.1.2 the floor was a fixed 300 comparable positions, which a 180 bp partial
+  ## query can never reach against any reference -- so the guard stopped discriminating on
+  ## exactly the queries that need it. Expressed as a fraction of the query, it works at
+  ## any length: for this 180 bp query the floor is 108 positions.
+  qcode <- c(rep(0L, 299), rep(1L, 180))               # determined at positions 300-479
+  refcode <- rbind(
+    c(rep(0L, 473), rep(1L, 6)),                       # agrees, but over only 6 positions
+    c(rep(1L, 479))                                    # full length, 0 mismatches... none here
+  )
+  refcode[2, c(310, 350, 400)] <- 2L                   # ...make it 3 real mismatches
+  got <- malaviR:::.qc_nearest(qcode, refcode, c("agrees_over_6", "true_relative"), top_n = 2L)
+
+  expect_equal(got$lineage[1], "true_relative")
+  expect_equal(got$distance[1], 3)
+  expect_equal(got$n_comparable[1], 180)
+  expect_equal(got$lineage[2], "agrees_over_6")
 })
 
 test_that("a partial barcode is placed into the frame and screened, not rejected", {
@@ -315,4 +374,62 @@ test_that("a query longer than the frame is not placed", {
   qc <- lineage_qc(paste0(full, "ACGTACGTAC"))
   expect_equal(qc$call, "invalid_sequence")
   expect_false("placed_in_malavi_frame" %in% qc$flags)
+})
+
+test_that("a partial query with real substitutions is not called a known lineage", {
+  ## The bug this guards against, end to end on the bundled alignment. Take the
+  ## second half of a complete lineage, mutate three bases, hold the source lineage
+  ## out of the reference, and screen it. Before version 1.1.2 the answer was
+  ## `known_lineage` at distance 0 -- against a reference sharing 6 positions with the
+  ## query, because pairwise deletion scores agreement over 6 positions the same as
+  ## agreement over 478. 180 of the bundled sequences carry no base at all in the
+  ## first 150 positions, so this is ordinary data, not a constructed reference.
+  skip_on_cran()
+  aln  <- extract_alignment()
+  chars <- toupper(as.character(aln))
+  determined <- rowSums(matrix(chars %in% c("A", "C", "G", "T"), nrow = nrow(aln)))
+  i <- which(determined == 479)[1]
+
+  ## positions 300-479 of a complete lineage, with three bases changed
+  q <- rep("N", 479)
+  q[300:479] <- chars[i, 300:479]
+  q[c(310, 350, 400)] <- ifelse(q[c(310, 350, 400)] == "A", "G", "A")
+
+  qc <- lineage_qc(paste(q, collapse = ""), reference = aln[-i, ],
+                   chimera_check = FALSE)
+
+  expect_false("exact_match_to_known_lineage" %in% qc$flags)
+  expect_false(identical(qc$call, "known_lineage"))
+  ## the reported neighbor is now one that actually shares the query's region
+  expect_gte(qc$summary$n_comparable, 108)   # the 60% floor for a 180 bp query
+  expect_gt(qc$summary$nearest_distance, 0)
+})
+
+test_that("an all-N query is not called a known lineage", {
+  ## The extreme case: nothing can be compared, so every reference is at distance 0.
+  ## Before 1.1.2 this returned call `known_lineage`, score 0.82, nearest H_ABSUP01 --
+  ## alignment row 1, which simply happened to sort first among 5,365 ties.
+  skip_on_cran()
+  qc <- lineage_qc(paste(rep("N", 479), collapse = ""),
+                   allow_ambiguity = TRUE, chimera_check = FALSE)
+
+  expect_true("no_comparable_reference_overlap" %in% qc$flags)
+  expect_false("exact_match_to_known_lineage" %in% qc$flags)
+  expect_false(identical(qc$call, "known_lineage"))
+  expect_true(is.na(qc$summary$nearest_distance))
+  ## and no lineage name either: every reference tied at 0 comparable positions,
+  ## so the "winner" was only the first row of the alignment
+  expect_true(is.na(qc$summary$nearest_lineage))
+  expect_equal(qc$summary$n_comparable, 0)
+})
+
+test_that("summary reports the overlap the nearest distance was measured over", {
+  skip_on_cran()
+  aln <- extract_alignment()
+  seq <- paste(as.character(aln[1, ]), collapse = "")
+  qc  <- lineage_qc(seq, chimera_check = FALSE)
+
+  expect_true("n_comparable" %in% names(qc$summary))
+  expect_equal(qc$summary$n_comparable, qc$nearest$n_comparable[1])
+  expect_gt(qc$summary$n_comparable, 0)
 })

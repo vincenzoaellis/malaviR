@@ -22,10 +22,13 @@ test_that("an N in the query is also skipped, not counted as a difference", {
   expect_equal(res$n_comparable, 9)   # position 10 dropped (query N)
 })
 
-test_that("distance 0 over very few comparable positions is reported but ranked behind fuller ties", {
+test_that("distance 0 over very few comparable positions is reported but ranked last", {
   ## R_tiny is determined at only two positions (the rest are N); it agrees there,
-  ## so its distance is 0 but backed by just 2 comparable positions -- weak
-  ## agreement that must not outrank the fully-overlapping exact match R_full.
+  ## so its distance is 0 but backed by just 2 comparable positions. Two of the
+  ## query's 10 positions is below the 60% overlap floor, so that agreement is not
+  ## treated as an exact match at all: R_tiny ranks behind R_diff, which shares the
+  ## whole query and genuinely differs at one base. It is still reported, with its
+  ## overlap visible, rather than dropped.
   ref <- c(
     R_full = "ACGTACGTAC",   # exact over all 10 positions
     R_tiny = "ACNNNNNNNN",   # determined only at positions 1-2 (both agree)
@@ -33,11 +36,9 @@ test_that("distance 0 over very few comparable positions is reported but ranked 
   )
   q <- "ACGTACGTAC"
   res <- pairwise_deletion_distance(q, reference = ref)
-  ## both distance-0 hits are reported; ties broken by higher n_comparable, then
-  ## the genuine one-base difference comes last
-  expect_equal(res$lineage, c("R_full", "R_tiny", "R_diff"))
-  expect_equal(res$distance, c(0, 0, 1))
-  expect_equal(res$n_comparable, c(10, 2, 10))   # low overlap is surfaced, not hidden
+  expect_equal(res$lineage, c("R_full", "R_diff", "R_tiny"))
+  expect_equal(res$distance, c(0, 1, 0))
+  expect_equal(res$n_comparable, c(10, 10, 2))   # low overlap is surfaced, not hidden
 })
 
 test_that("top_n limits the number of references returned, nearest first", {

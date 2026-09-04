@@ -49,14 +49,31 @@ This is the same distance used internally by \code{\link{lineage_qc}} and the
 near-neighbor search, exposed for reuse. Typical uses: how far a denoised ASV
 sits from the dominant ASV in the same sample (pass that sample's ASVs as
 \code{reference}), or from candidate MalAvi lineages (the default reference).
-
-Results are ordered by ascending \code{distance}, then by \strong{descending}
-\code{n_comparable}, so among equally distant references the most completely
-overlapping one comes first. This is deliberate: a fully-overlapping exact match
-is never displaced by a reference that merely ties it because an ambiguous
-position was dropped from the comparison (the same tie-break
-\code{\link{lineage_qc}} relies on).
 }
+\section{Ordering}{
+
+References are ranked in three tiers, and within each tier by \strong{descending}
+\code{n_comparable}:
+\enumerate{
+  \item exact matches (\code{distance == 0}) that share enough of the query --
+    at least 60\% of its determined positions;
+  \item every other reference sharing that much of the query, by ascending
+    \emph{mismatch rate} (\code{distance / n_comparable});
+  \item references sharing less than that, again by rate.
+}
+
+Each tier answers a way the naive ordering misleads. Ranking on the raw mismatch
+\emph{count} lets a barely-overlapping reference win by having less to disagree
+over, so the rate is used instead. A reference sharing no determined position with
+the query also has \code{distance == 0} under pairwise deletion, so an exact match
+only counts as one when it rests on enough overlap; below that floor a reference is
+reported but ranked last, however small its distance. And breaking ties by overlap
+keeps a fully-overlapping exact match from being displaced by a reference that
+merely ties it because an ambiguous position was dropped from the comparison.
+
+Always read \code{distance} together with \code{n_comparable}.
+}
+
 \examples{
 aln <- extract_alignment()
 q <- paste(as.character(aln[1, ]), collapse = "")

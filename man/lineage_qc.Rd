@@ -60,7 +60,9 @@ haemosporidians.}
 \value{
 An object of class \code{malavi_lineage_qc}: a list with
   \describe{
-    \item{\code{call}}{the overall verdict: \code{known_lineage} (exact match),
+    \item{\code{call}}{the overall verdict: \code{known_lineage} (an exact match
+      covering enough of the query -- see \code{matches_known_lineage_over_short_overlap}
+      under \emph{Flags} for what happens when it does not),
       \code{plausible_new_lineage}, \code{review}, \code{strong_warning},
       \code{possible_error}, \code{possible_chimera}, or
       \code{invalid_or_strong_warning} / \code{invalid_sequence}.}
@@ -68,8 +70,11 @@ An object of class \code{malavi_lineage_qc}: a list with
       0 = suspicious). Artifact risk is simply \code{1 - score}.}
     \item{\code{summary}}{a one-row data frame with \code{call}, \code{score},
       the \code{nearest_lineage} and \code{nearest_distance} (Hamming distance
-      to it), \code{n_mutations} versus that lineage, of which
-      \code{n_nonsynonymous} change the protein, and \code{n_stop_codons}.}
+      to it), \code{n_comparable} (how many positions that distance was measured
+      over -- a distance of 0 across 6 shared positions is a much weaker statement
+      than the same distance across 478), \code{n_mutations} versus that lineage,
+      of which \code{n_nonsynonymous} change the protein, and
+      \code{n_stop_codons}.}
     \item{\code{flags}}{the character vector of warnings (see \emph{Flags}).}
     \item{\code{counts}}{a named integer vector with the full per-category
       counts behind the score (invariant-site changes, never-observed bases,
@@ -165,6 +170,17 @@ you may see:
     \code{moderately_divergent_from_known_lineages},
     \code{highly_divergent_from_known_lineages}}{how far the query sits from the
     nearest known lineage.}
+  \item{\code{matches_known_lineage_over_short_overlap}}{the query agrees with
+    a known lineage at every position the two can be compared at, but those
+    positions cover too little of the query (less than 60\% of its determined
+    bases) to call it that lineage. The query is \emph{compatible} with the
+    lineage, not identified as it; \code{n_comparable} in \code{summary} gives
+    the overlap. Sequence the rest of the barcode before deciding. Distances are
+    computed with pairwise deletion, so this is what a partial query looks like
+    against a reference determined in a different part of the window.}
+  \item{\code{no_comparable_reference_overlap}}{no reference shares a single
+    determined position with the query, so \code{nearest_distance} is \code{NA}
+    and no distance-based flag is given. A query that is all \code{N}s does this.}
   \item{\code{N_changes_at_invariant_sites}}{changes at sites that never vary
     in MalAvi (very suspicious).}
   \item{\code{N_bases_never_observed_at_their_sites}}{bases never seen at that
