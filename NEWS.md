@@ -1,3 +1,23 @@
+# malaviR 1.3.0
+
+**Bundled MalAvi release 2026-09-15**, the first built from the rebuild's record store
+rather than exported at Lund. `malavi_version()` now returns `"2026-09-15"`; the
+2026-03-23 bundle is no longer shipped (the archived ZIP stays in `data-raw/`).
+
+Compared with 2026-03-23: 5,520 lineages (+152 net; 153 added, STRALU01 renamed
+STAL3), 18,675 host records (+182), 533 references (+7), 260 morphospecies links (+4),
+610 vector records (unchanged). The Grand Lineage Summary's derived columns are
+recomputed from the records at build time, so 321 lineages carry corrected host counts
+or region flags relative to the 2026-03-23 file, most of them United States records
+that never set NORTH_AMERICA. Eight corrections to previously published values are
+carried (a longitude sign at Mata Seca State Park, a misspelled vector method, four host
+genus placeholders, an accession spelling); each is logged with its reason in the
+rebuild's `data/corrections.csv`.
+
+`taxonomy` was rebuilt against the same clootl snapshot; 2 host species are new.
+
+No code changes.
+
 # malaviR 1.2.0
 
 **`lineage_qc()` no longer returns a plausibility score.** The `score` element, the
