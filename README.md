@@ -5,14 +5,11 @@
 [![GitHub release](https://img.shields.io/github/v/tag/vincenzoaellis/malaviR?label=release&sort=semver&color=blue)](https://github.com/vincenzoaellis/malaviR/releases)
 <!-- badges: end -->
 
-An R interface to [MalAvi](https://wimanet-science.github.io/web/malavi/), the public
+An R interface to [MalAvi](https://malavi-db.github.io/), the public
 database of avian haemosporidian (malaria and related) parasite mtDNA cytochrome
-*b* lineages.
-
-> **Note on this release.** MalAvi is no longer hosted at a permanent web address (although it will be soon). The
-> functions in the first version of `malaviR`  downloaded data from the MalAvi server / web address. Since that is no longer an option,
-> I wanted to update `malaviR`, so that it would be useful again. Staffan Bensch (the creator and maintainer of MalAvi) has been emailing out the latest versions of the database to users, so what I've done is to bundle those database files with `malaviR`. For BLAST functions,  I'm using the code from a [Shiny app I developed](https://wimanet-science.github.io/web/malavi/blast/), which uses `DECIPHER` to create a BLAST-like functionality. There are also a few new helper functions here. This is something that I've wanted to do for a while, but have not had the time. So I decided to experiment with Claude Code
-> (Opus 4.8) as a helper to more quickly rewrite the `malaviR` package. It was incredibly fast, and I think all the functions behave properly. But I'm still testing them and working on the description files. If you spot anything that should be changed or fixed, please do let me know either by opening an issue here or email me directly (vaellis@udel.edu).
+*b* lineages. This is a rebuilt version of malaviR made with Claude Code. If you spot
+anything that should be changed or fixed please let me know by opening an issue here
+or emailing me directly at vaellis@udel.edu.
 
 ## Installation
 
@@ -32,7 +29,7 @@ BiocManager::install(c("DECIPHER", "Biostrings"))
 
 ## What's in the package
 
-The MalAvi database is identified by its release date (e.g. the most recent one as of the update of this package is `2026-03-23`).
+The MalAvi database is identified by its release date.
 
 ```r
 library(malaviR)
@@ -207,10 +204,10 @@ data(taxonomy)
 
 ```r
 malavi_issues()                          # the known issues in the bundled release
-malavi_issues(version = "2026-03-23")    # or a particular release
+malavi_issues(version = malavi_version())  # or a particular bundled release
 ```
 
-It prints a short, plain list: a heading naming the release, then a title and one sentence per issue. What's in there at the moment is one lineage whose alignment genus prefix disagrees with its `GENUS_NAME`, seven lineages whose `GENUS_NAME` is the string `"N/A"` (which turns into a fake `N_` genus prefix), a lineage name that appears twice in the Grand Lineage Summary because it's been reported under two morphospecies, and a few lineages that are in the alignment but not the table or the other way round.
+It prints a short, plain list: a heading naming the release, then a title and one sentence per issue. The kinds of things it catches: a lineage whose alignment genus prefix disagrees with its `GENUS_NAME`, a `GENUS_NAME` that is the string `"N/A"` (which turns into a fake `N_` genus prefix), a lineage name that appears twice in the Grand Lineage Summary because it has been reported under two morphospecies, and lineages that are in the alignment but not the table or the other way round.
 
 The part that matters is that each issue is **re-derived from the release you have loaded** rather than stored as text. The counts and lineage names you read are the ones found in your release, so the wording can't drift out of step with the data — and an issue that a future MalAvi release fixes stops being found and simply drops off the list, without me editing anything.
 
