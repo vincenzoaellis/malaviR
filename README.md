@@ -35,7 +35,7 @@ The MalAvi database is identified by its release date.
 library(malaviR)
 
 malavi_version()        # release date of the MalAvi database that the package is currently using
-malavi_version("all")   # all bundled releases...I will keep some older versions of the database here and this is how you can see them
+malavi_version("all")   # every release bundled with this version of the package
 ```
 
 ### Data tables and the alignment
