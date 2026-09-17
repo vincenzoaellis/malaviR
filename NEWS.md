@@ -1,3 +1,9 @@
+# malaviR 1.3.2
+
+The genus check's sentence is now the short form: the count, the rule once, and the
+lineage names. The per-lineage detail (neighbour counts, nearest sequence, distance) is
+in the table the check computes, not in the sentence the website shows.
+
 # malaviR 1.3.1
 
 **`malavi_issues()` gains a check, "Parasite genus contradicts the nearest sequences".**

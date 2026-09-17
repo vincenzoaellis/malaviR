@@ -166,22 +166,23 @@
         out$lineage
       },
       describe = function(affected, ctx) {
-        out <- .malavi_genus_outliers_ctx(ctx)
-        out <- out[match(affected, out$lineage), , drop = FALSE]
-        parts <- vapply(seq_len(nrow(out)), function(r) {
-          paste0(
-            out$lineage[r], " is listed as ", out$genus[r], ", but ",
-            out$n_neighbors_other[r], " of its ", out$n_neighbors[r],
-            " nearest sequences (within ",
-            .malavi_count_word(.MALAVI_GENUS_MAX_MISMATCH),
-            " mismatches over at least ", .MALAVI_GENUS_MIN_COMPARABLE,
-            " positions) are ", out$neighbor_genus[r], "; the nearest is ",
-            out$nearest[r], ", ",
-            if (out$nearest_mismatches[r] == 0) "no" else .malavi_count_word(out$nearest_mismatches[r]),
-            if (out$nearest_mismatches[r] == 1) " mismatch" else " mismatches",
-            " over ", out$nearest_comparable[r], " positions")
-        }, character(1))
-        paste0(paste(parts, collapse = ". "), ".")
+        ## The short form (Vincenzo, 2026-09-17): the count, the rule once, and
+        ## the names. The per-lineage detail -- neighbour counts, the nearest
+        ## sequence and its distance -- is in the table the check computes
+        ## (.malavi_genus_outliers_ctx), not in the sentence, because the
+        ## sentence is what the website's known-issues card shows and thirty
+        ## clauses of it would be a wall.
+        n <- length(affected)
+        paste0(
+          n, if (n == 1) " lineage is" else " lineages are",
+          " listed under a genus that ", if (n == 1) "its" else "their",
+          " sequences contradict: of the sequences within ",
+          .malavi_count_word(.MALAVI_GENUS_MAX_MISMATCH),
+          " mismatches of ", if (n == 1) "it" else "each",
+          " (over at least ", .MALAVI_GENUS_MIN_COMPARABLE,
+          " compared positions), three quarters or more belong to another genus. ",
+          if (n == 1) "Lineage is: " else "Lineages are: ",
+          .malavi_lineage_list(affected), ".")
       }
     )
   )

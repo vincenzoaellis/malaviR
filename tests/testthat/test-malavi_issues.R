@@ -181,15 +181,17 @@ test_that("on the release, every reported genus outlier really sits among anothe
   expect_true(all(out$n_neighbors_other >= malaviR:::.MALAVI_GENUS_MIN_SHARE * out$n_neighbors))
   expect_true(all(out$nearest_mismatches <= malaviR:::.MALAVI_GENUS_MAX_MISMATCH))
   expect_true(all(out$nearest_comparable >= malaviR:::.MALAVI_GENUS_MIN_COMPARABLE))
-  ## the sentence names each lineage, its genus and its nearest sequence
+  ## the sentence states the count, the rule once, and every lineage by name;
+  ## the per-lineage detail stays in the table, not the sentence
   registry <- malaviR:::.malavi_issue_registry()
   issue <- registry[[which(vapply(registry, function(i) i$title, character(1)) ==
                              "Parasite genus contradicts the nearest sequences")]]
   txt <- issue$describe(issue$check(ctx), ctx)
-  for (r in seq_len(nrow(out))) {
-    expect_true(grepl(paste0(out$lineage[r], " is listed as ", out$genus[r]), txt, fixed = TRUE))
-    expect_true(grepl(paste0("the nearest is ", out$nearest[r]), txt, fixed = TRUE))
-  }
+  expect_true(startsWith(txt, paste0(nrow(out), " lineage")))
+  expect_true(grepl("within five mismatches", txt, fixed = TRUE))
+  expect_true(grepl(paste0("Lineages are: ", paste(sort(out$lineage), collapse = ", "), "."),
+                    txt, fixed = TRUE))
+  expect_false(grepl("the nearest is", txt, fixed = TRUE))
   ## the second call reads the cache rather than recomputing
   expect_identical(malaviR:::.malavi_genus_outliers_ctx(ctx), out)
 })
