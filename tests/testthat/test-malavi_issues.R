@@ -114,3 +114,93 @@ test_that("every registry entry has a check, a describe and a title", {
   expect_true(all(vapply(registry, function(i) is.function(i$describe), logical(1))))
   expect_true(all(vapply(registry, function(i) nzchar(i$title), logical(1))))
 })
+
+## ---- the genus-versus-neighbours check ---------------------------------------
+
+## a hand-made alignment: `base` and three one-substitution relatives form a
+## cluster; `far` and one relative differ from the cluster at every fourth
+## position (about 25 % divergence, the order of a genus difference)
+.genus_fixture <- function(seed = 1) {
+  set.seed(seed)
+  base <- sample(c("A", "C", "G", "T"), 479, replace = TRUE)
+  mutate <- function(x, at) { x[at] <- ifelse(x[at] == "A", "C", "A"); x }
+  far <- base
+  far[seq(1, 479, by = 4)] <- ifelse(far[seq(1, 479, by = 4)] == "G", "T", "G")
+  list(base = base, far = far, mutate = mutate)
+}
+
+test_that("the genus check finds a lineage planted inside a cluster of another genus", {
+  f <- .genus_fixture()
+  charmat <- rbind(P1 = f$base, P2 = f$mutate(f$base, 10), P3 = f$mutate(f$base, 20),
+                   WRONG = f$mutate(f$base, 30), H1 = f$far, H2 = f$mutate(f$far, 40))
+  genus <- c("Plasmodium", "Plasmodium", "Plasmodium", "Haemoproteus",
+             "Haemoproteus", "Haemoproteus")
+  out <- malaviR:::.malavi_genus_outliers(charmat, genus)
+  expect_equal(out$lineage, "WRONG")
+  expect_equal(out$genus, "Haemoproteus")
+  expect_equal(out$neighbor_genus, "Plasmodium")
+  expect_equal(out$n_neighbors, 3L)
+  expect_equal(out$n_neighbors_other, 3L)
+  expect_equal(out$nearest_mismatches, 1L)
+  expect_equal(out$nearest_comparable, 479L)
+  ## the two real Haemoproteus have only one neighbour each: below the minimum
+  expect_false(any(c("H1", "H2") %in% out$lineage))
+})
+
+test_that("the genus check needs enough neighbours, enough overlap and a known genus", {
+  f <- .genus_fixture(2)
+  ## two neighbours only: not reported
+  charmat <- rbind(P1 = f$base, P2 = f$mutate(f$base, 10), WRONG = f$mutate(f$base, 30))
+  out <- malaviR:::.malavi_genus_outliers(charmat, c("Plasmodium", "Plasmodium", "Haemoproteus"))
+  expect_equal(nrow(out), 0L)
+  ## three neighbours, but the lineage is mostly undetermined: not reported
+  short <- f$mutate(f$base, 30); short[1:200] <- "N"
+  charmat <- rbind(P1 = f$base, P2 = f$mutate(f$base, 10), P3 = f$mutate(f$base, 20), WRONG = short)
+  out <- malaviR:::.malavi_genus_outliers(charmat, c(rep("Plasmodium", 3), "Haemoproteus"))
+  expect_equal(nrow(out), 0L)
+  ## an undetermined stretch that still leaves enough overlap is counted right
+  short <- f$mutate(f$base, 30); short[1:100] <- "-"
+  charmat <- rbind(P1 = f$base, P2 = f$mutate(f$base, 10), P3 = f$mutate(f$base, 20), WRONG = short)
+  out <- malaviR:::.malavi_genus_outliers(charmat, c(rep("Plasmodium", 3), "Haemoproteus"))
+  expect_equal(out$lineage, "WRONG")
+  expect_equal(out$nearest_comparable, 379L)
+  ## an unknown genus neither reports nor counts as a neighbour
+  charmat <- rbind(P1 = f$base, P2 = f$mutate(f$base, 10), P3 = f$mutate(f$base, 20), WRONG = f$mutate(f$base, 30))
+  out <- malaviR:::.malavi_genus_outliers(charmat, c(rep("Plasmodium", 3), NA))
+  expect_equal(nrow(out), 0L)
+  out <- malaviR:::.malavi_genus_outliers(charmat, c("Plasmodium", "Plasmodium", NA, "Haemoproteus"))
+  expect_equal(nrow(out), 0L)
+})
+
+test_that("on the release, every reported genus outlier really sits among another genus", {
+  ctx <- malaviR:::.malavi_issue_context("latest")
+  out <- malaviR:::.malavi_genus_outliers_ctx(ctx)
+  skip_if(nrow(out) == 0, "no lineage contradicts its nearest sequences in this release")
+  expect_true(all(out$genus != out$neighbor_genus))
+  expect_true(all(out$n_neighbors >= malaviR:::.MALAVI_GENUS_MIN_NEIGHBORS))
+  expect_true(all(out$n_neighbors_other >= malaviR:::.MALAVI_GENUS_MIN_SHARE * out$n_neighbors))
+  expect_true(all(out$nearest_mismatches <= malaviR:::.MALAVI_GENUS_MAX_MISMATCH))
+  expect_true(all(out$nearest_comparable >= malaviR:::.MALAVI_GENUS_MIN_COMPARABLE))
+  ## the sentence names each lineage, its genus and its nearest sequence
+  registry <- malaviR:::.malavi_issue_registry()
+  issue <- registry[[which(vapply(registry, function(i) i$title, character(1)) ==
+                             "Parasite genus contradicts the nearest sequences")]]
+  txt <- issue$describe(issue$check(ctx), ctx)
+  for (r in seq_len(nrow(out))) {
+    expect_true(grepl(paste0(out$lineage[r], " is listed as ", out$genus[r]), txt, fixed = TRUE))
+    expect_true(grepl(paste0("the nearest is ", out$nearest[r]), txt, fixed = TRUE))
+  }
+  ## the second call reads the cache rather than recomputing
+  expect_identical(malaviR:::.malavi_genus_outliers_ctx(ctx), out)
+})
+
+test_that("the genus-outlier table stored in the bundle is what a fresh computation gives", {
+  ## the release build stores the table so malavi_issues() stays quick; this
+  ## recomputes it from the bundled alignment (about half a minute) so a stale
+  ## table cannot survive a rebuild of the alignment without one
+  skip_if(identical(Sys.getenv("MALAVI_SKIP_SLOW"), "true"), "slow test skipped")
+  bundle <- malaviR:::.malavi_load("latest")
+  skip_if(is.null(bundle$genus_outliers), "this bundle carries no stored genus-outlier table")
+  fresh <- malaviR:::.malavi_genus_outliers_bundle(bundle)
+  expect_equal(bundle$genus_outliers, fresh)
+})

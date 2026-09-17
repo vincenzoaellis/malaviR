@@ -1,3 +1,20 @@
+# malaviR 1.3.1
+
+**`malavi_issues()` gains a check, "Parasite genus contradicts the nearest sequences".**
+For every lineage with at least 300 determined positions it looks at the other sequences
+within five mismatches over at least 300 comparable positions (pairwise deletion); when
+there are at least three and three quarters or more of them carry one other genus, the
+lineage is reported with its nearest sequence. In release 2026-09-15 that is 32 lineages.
+The one that prompted it, POEPAL01, is recorded as *Haemoproteus* but is SGS1 with a single
+substitution (and *Plasmodium* sp. at GenBank).
+
+The all-pairs distances take about half a minute, so `data-raw/process_release.R` now
+computes the table once at release build and stores it in the bundle as
+`genus_outliers`; `malavi_issues()` reads it, falls back to computing it for a bundle that
+predates the check, and a test recomputes it from the bundled alignment to prove the
+stored table matches. The 2026-09-15 bundle was rebuilt with the table (the alignment and
+tables in it are unchanged).
+
 # malaviR 1.3.0
 
 **Bundled MalAvi release 2026-09-15**, the first built from the rebuild's record store

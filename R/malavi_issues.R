@@ -73,7 +73,10 @@
     prefix_genus = prefix_genus,
     ## GENUS_NAME as recorded for each alignment sequence; "N/A" left as-is so
     ## the missing-genus issue can see it
-    table_genus  = gls$GENUS_NAME[match(clean_names(names), gls$LINEAGE_NAME)]
+    table_genus  = gls$GENUS_NAME[match(clean_names(names), gls$LINEAGE_NAME)],
+    ## an environment, so a check that computes something expensive can leave
+    ## it for its describe() to reuse (the list itself is copied, this is not)
+    cache        = new.env(parent = emptyenv())
   )
 }
 
@@ -154,8 +157,182 @@
             "table but not the alignment: ", .malavi_lineage_list(only_table), "."))
         paste(parts, collapse = " ")
       }
+    ),
+
+    list(
+      title = "Parasite genus contradicts the nearest sequences",
+      check = function(ctx) {
+        out <- .malavi_genus_outliers_ctx(ctx)
+        out$lineage
+      },
+      describe = function(affected, ctx) {
+        out <- .malavi_genus_outliers_ctx(ctx)
+        out <- out[match(affected, out$lineage), , drop = FALSE]
+        parts <- vapply(seq_len(nrow(out)), function(r) {
+          paste0(
+            out$lineage[r], " is listed as ", out$genus[r], ", but ",
+            out$n_neighbors_other[r], " of its ", out$n_neighbors[r],
+            " nearest sequences (within ",
+            .malavi_count_word(.MALAVI_GENUS_MAX_MISMATCH),
+            " mismatches over at least ", .MALAVI_GENUS_MIN_COMPARABLE,
+            " positions) are ", out$neighbor_genus[r], "; the nearest is ",
+            out$nearest[r], ", ",
+            if (out$nearest_mismatches[r] == 0) "no" else .malavi_count_word(out$nearest_mismatches[r]),
+            if (out$nearest_mismatches[r] == 1) " mismatch" else " mismatches",
+            " over ", out$nearest_comparable[r], " positions")
+        }, character(1))
+        paste0(paste(parts, collapse = ". "), ".")
+      }
     )
   )
+}
+
+## ---- the genus-versus-neighbours check -------------------------------------
+##
+## A lineage's GENUS_NAME is typed in by hand; its sequence is not. When every
+## sequence within a few substitutions of a lineage carries a different genus,
+## the label is wrong far more often than the biology is (POEPAL01, entered as
+## Haemoproteus, is SGS1 with one substitution and is "Plasmodium sp. PAPA01" at
+## GenBank; 32 lineages in the 2026-09-15 release are like it). This check
+## re-derives that list from the loaded release.
+##
+## The thresholds are deliberately conservative, so that only a lineage sitting
+## INSIDE a cluster of another genus is reported:
+
+## a lineage must have at least this many determined (A/C/G/T) positions, and a
+## neighbour must share at least this many with it, before the comparison counts.
+## Same value and reasoning as MIN_INFORMATIVE_FOR_IDENTITY elsewhere in the
+## rebuild: MalAvi's own standard for calling two sequences the same lineage.
+.MALAVI_GENUS_MIN_COMPARABLE <- 300L
+## a neighbour is a sequence within this many mismatches over the comparable
+## positions (pairwise deletion). Five is ~1 % of the barcode; genera differ by
+## an order of magnitude more.
+.MALAVI_GENUS_MAX_MISMATCH <- 5L
+## at least this many neighbours, and at least this share of them of one genus
+## other than the lineage's own. Three stops a single mislabelled neighbour
+## from indicting a correctly labelled lineage; the share tolerates a couple of
+## other mislabelled lineages in the same cluster.
+.MALAVI_GENUS_MIN_NEIGHBORS <- 3L
+.MALAVI_GENUS_MIN_SHARE <- 0.75
+
+## The computation, on an upper-case character alignment (rows = sequences,
+## columns = positions; A/C/G/T are determined, anything else is not) and a
+## genus per row. Pure, so it can be tested on a hand-made alignment. Returns
+## one row per outlier, in alignment order.
+##
+## Mismatch counts over comparable positions come from ape::dist.dna with
+## pairwise deletion (its "known base" is exactly A/C/G/T, checked against the
+## direct definition on 200 random pairs of the 2026-09-15 release, 0
+## disagreements). Comparable counts are L - u_i - u_j + |u_i AND u_j| over the
+## undetermined-position indicators, with the last term a matrix product over
+## the rows that have any undetermined position. About 25 s for the release in
+## plain R, which is why the release build stores the result in the bundle
+## (see .malavi_genus_outliers_ctx).
+.malavi_genus_outliers <- function(charmat, genus, row_names = rownames(charmat),
+                                   min_comparable = .MALAVI_GENUS_MIN_COMPARABLE,
+                                   max_mismatch   = .MALAVI_GENUS_MAX_MISMATCH,
+                                   min_neighbors  = .MALAVI_GENUS_MIN_NEIGHBORS,
+                                   min_share      = .MALAVI_GENUS_MIN_SHARE) {
+  n <- nrow(charmat)
+  empty <- data.frame(
+    lineage = character(0), genus = character(0),
+    n_neighbors = integer(0), n_neighbors_other = integer(0),
+    neighbor_genus = character(0), nearest = character(0),
+    nearest_genus = character(0), nearest_mismatches = integer(0),
+    nearest_comparable = integer(0), stringsAsFactors = FALSE)
+  if (n < 2L) return(empty)
+
+  determined <- matrix(charmat %in% c("A", "C", "G", "T"), n, ncol(charmat))
+  n_determined <- rowSums(determined)
+  ## a genus that is unknown can neither be contradicted nor contradict
+  known_genus <- !is.na(genus) &
+    genus %in% c("Plasmodium", "Haemoproteus", "Leucocytozoon")
+
+  ## mismatches: sites where both are determined and the bases differ
+  dna <- ape::as.DNAbin(matrix(tolower(charmat), n, ncol(charmat)))
+  mismatch <- ape::dist.dna(dna, model = "N", pairwise.deletion = TRUE,
+                            as.matrix = TRUE)
+  ## comparable: sites determined in both
+  undetermined <- ncol(charmat) - n_determined
+  comparable <- ncol(charmat) - outer(undetermined, undetermined, "+")
+  partial <- which(undetermined > 0)
+  if (length(partial) > 1L) {
+    U <- (!determined[partial, , drop = FALSE]) + 0   # numeric for BLAS
+    comparable[partial, partial] <- comparable[partial, partial] + tcrossprod(U)
+  } else if (length(partial) == 1L) {
+    comparable[partial, partial] <- comparable[partial, partial] + undetermined[partial]
+  }
+
+  rows <- list()
+  for (i in seq_len(n)) {
+    if (n_determined[i] < min_comparable || !known_genus[i]) next
+    close <- which(comparable[i, ] >= min_comparable &
+                   mismatch[i, ] <= max_mismatch & known_genus)
+    close <- close[close != i]
+    if (length(close) < min_neighbors) next
+    tab <- sort(table(genus[close]), decreasing = TRUE)
+    top <- names(tab)[1]
+    if (top == genus[i] || tab[[1]] < min_share * length(close)) next
+    ## the nearest neighbour: lowest mismatch rate, then most comparable
+    ord <- order(mismatch[i, close] / comparable[i, close], -comparable[i, close])
+    j <- close[ord[1]]
+    rows[[length(rows) + 1L]] <- data.frame(
+      lineage = row_names[i], genus = genus[i],
+      n_neighbors = length(close), n_neighbors_other = as.integer(tab[[1]]),
+      neighbor_genus = top, nearest = row_names[j], nearest_genus = genus[j],
+      nearest_mismatches = as.integer(round(mismatch[i, j])),
+      nearest_comparable = as.integer(round(comparable[i, j])),
+      stringsAsFactors = FALSE)
+  }
+  if (!length(rows)) return(empty)
+  out <- do.call(rbind, rows)
+  rownames(out) <- NULL
+  out
+}
+
+## The genus of each alignment row, as the check wants it: the Grand Lineage
+## Summary's GENUS_NAME by lineage name, the alignment prefix only when the
+## table has no row for the name, and NA for "N/A" (a missing genus is its own
+## issue and can neither be contradicted nor contradict). Shared by the release
+## build (data-raw/process_release.R) and the call-time fallback, so the table
+## in the bundle and a fresh computation cannot differ in what "genus" means.
+.malavi_genus_by_row <- function(alignment_names, gls) {
+  lineage <- clean_names(alignment_names)
+  genus <- gls$GENUS_NAME[match(lineage, gls$LINEAGE_NAME)]
+  prefix <- unname(c(P = "Plasmodium", H = "Haemoproteus",
+                     L = "Leucocytozoon")[substr(alignment_names, 1, 1)])
+  genus[is.na(genus)] <- prefix[is.na(genus)]
+  genus[!is.na(genus) & genus == "N/A"] <- NA_character_
+  genus
+}
+
+## The table for one release bundle: rows of the bundle's alignment against the
+## bundle's Grand Lineage Summary. This is what the release build stores as
+## bundle$genus_outliers, and what the fallback computes when a bundle predates
+## the check.
+.malavi_genus_outliers_bundle <- function(bundle) {
+  charmat <- toupper(as.character(bundle$alignment))
+  gls <- bundle[["Grand Lineage Summary"]]
+  if (is.null(gls)) gls <- bundle$grand_lineage_summary
+  genus <- .malavi_genus_by_row(rownames(charmat), gls)
+  .malavi_genus_outliers(charmat, genus, row_names = clean_names(rownames(charmat)))
+}
+
+## The same on the release in `ctx`, computed once per context: the check and
+## the describe both need the table, and `ctx$cache` is an environment so the
+## second call finds what the first stored. The bundle's stored table is used
+## when the release build wrote one; otherwise it is computed here, slowly.
+.malavi_genus_outliers_ctx <- function(ctx) {
+  if (!is.null(ctx$cache$genus_outliers)) return(ctx$cache$genus_outliers)
+  bundle <- .malavi_load(ctx$version)
+  out <- bundle$genus_outliers
+  if (is.null(out)) {
+    message("This release bundle carries no genus-outlier table; computing it ",
+            "from the alignment (about half a minute).")
+    out <- .malavi_genus_outliers_bundle(bundle)
+  }
+  ctx$cache$genus_outliers <- out
+  out
 }
 
 #' Known issues in the MalAvi data

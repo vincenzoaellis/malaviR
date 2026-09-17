@@ -134,6 +134,21 @@ alignment <- ape::read.dna(fas, format = "fasta")
 message(sprintf("  alignment              %d seqs x %d bp", nrow(alignment), ncol(alignment)))
 
 db_bundle <- c(tables, list(alignment = alignment, version = date_tag))
+
+## --- the genus-outlier table for malavi_issues() -----------------------------
+## Lineages whose nearest sequences are another genus (see the check "Parasite
+## genus contradicts the nearest sequences" in R/malavi_issues.R). Computing it
+## needs every pairwise distance in the alignment, about half a minute, so it
+## is done once here and stored in the bundle; malavi_issues() reads it, and a
+## test recomputes it from the bundled alignment to prove the two agree. The
+## package's own functions are used, sourced from R/ so the table is derived by
+## exactly the code that would compute it at call time.
+message("Computing the genus-outlier table (all pairwise distances)...")
+pkg_src <- new.env()
+for (f in c("R/clean_names.R", "R/malavi_issues.R")) sys.source(file.path(repo, f), envir = pkg_src)
+db_bundle$genus_outliers <- pkg_src$.malavi_genus_outliers_bundle(db_bundle)
+message(sprintf("  genus outliers         %d lineages", nrow(db_bundle$genus_outliers)))
+
 db_out <- file.path(outdir, sprintf("malavi_db_%s.rds", date_tag))
 saveRDS(db_bundle, db_out, compress = "xz")
 message("Wrote ", db_out, " (", round(file.size(db_out) / 1e3), " KB)")
