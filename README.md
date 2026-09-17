@@ -200,18 +200,12 @@ data(taxonomy)
 
 ### Known problems in the MalAvi data
 
-`malaviR` ships the MalAvi tables **verbatim** — I don't quietly correct them, because then the package and the database would disagree and you'd have no way to tell. But problems do turn up in the data, usually when someone is building something downstream and hits one. `malavi_issues()` is where the package remembers them.
+When we find issues with the dataset we use the function `malavi_issues()` to present them.
 
 ```r
 malavi_issues()                          # the known issues in the bundled release
 malavi_issues(version = malavi_version())  # or a particular bundled release
 ```
-
-It prints a short, plain list: a heading naming the release, then a title and one sentence per issue. The kinds of things it catches: a lineage whose alignment genus prefix disagrees with its `GENUS_NAME`, a `GENUS_NAME` that is the string `"N/A"` (which turns into a fake `N_` genus prefix), a lineage name that appears twice in the Grand Lineage Summary because it has been reported under two morphospecies, and lineages that are in the alignment but not the table or the other way round.
-
-The part that matters is that each issue is **re-derived from the release you have loaded** rather than stored as text. The counts and lineage names you read are the ones found in your release, so the wording can't drift out of step with the data — and an issue that a future MalAvi release fixes stops being found and simply drops off the list, without me editing anything.
-
-If you find something wrong in the data, please open an issue — I'd rather have it recorded here than have everyone rediscover it. Actual corrections go upstream, into a future MalAvi release.
 
 ## Important assumptions
 
