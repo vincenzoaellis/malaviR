@@ -4,13 +4,19 @@
 #' the package. MalAvi is no longer downloaded from the web; the tables come from
 #' the release shipped with \code{malaviR} (see \code{\link{malavi_version}}).
 #'
-#' The bundled release provides five tables:
+#' The bundled release provides six tables:
 #' \describe{
 #'   \item{\code{"Hosts and Sites Table"}}{host records, sites, and references (\code{hosts_and_sites}).}
 #'   \item{\code{"Grand Lineage Summary"}}{per-lineage summary, including the sequence (\code{grand_lineage_summary}).}
 #'   \item{\code{"Morpho Species Summary"}}{lineages linked to morphologically described species (\code{morpho_species}).}
 #'   \item{\code{"Table of References"}}{reference list (\code{references}).}
 #'   \item{\code{"Vector Data Table"}}{vector records (\code{vector_data}).}
+#'   \item{\code{"Lineage History"}}{what changed about a lineage name and when:
+#'     sequence updates, renames, merges and removals (\code{lineage_history}).
+#'     Added to the release format on 2026-09-25; for a bundled release that
+#'     predates it the table is returned empty, with its ten columns, so code
+#'     written against it runs on every release. See
+#'     \code{\link{lineage_history_map}} to follow old names forward.}
 #' }
 #' Either the descriptive name above or its short \code{snake_case} key may be
 #' supplied.
@@ -31,7 +37,7 @@
 #' invisible trailing newline. \code{NA} values are preserved.
 #'
 #' @param table Name of the table to return (see Details), or \code{"all"} to
-#'   return a named list of all five tables. Defaults to \code{"Hosts and Sites Table"}.
+#'   return a named list of all six tables. Defaults to \code{"Hosts and Sites Table"}.
 #' @param version MalAvi release to read, as a date string (e.g.
 #'   \code{"2026-03-23"}) or \code{"latest"} (default).
 #' @return A \code{data.frame}, or for \code{table = "all"} a named list of
@@ -52,25 +58,36 @@ extract_table <- function(table = "Hosts and Sites Table", version = "latest") {
     "Morpho Species Summary" = "morpho_species",
     "Table of References"    = "references",
     "Vector Data Table"      = "vector_data",
+    "Lineage History"        = "lineage_history",
     "hosts_and_sites"        = "hosts_and_sites",
     "grand_lineage_summary"  = "grand_lineage_summary",
     "morpho_species"         = "morpho_species",
     "references"             = "references",
-    "vector_data"            = "vector_data"
+    "vector_data"            = "vector_data",
+    "lineage_history"        = "lineage_history"
   )
 
   if (!(table %in% c(names(lookup), "all"))) {
     stop('Please choose one of the following tables:\n',
          '"Hosts and Sites Table", "Grand Lineage Summary", "Morpho Species Summary",\n',
-         '"Table of References", "Vector Data Table", or "all".', call. = FALSE)
+         '"Table of References", "Vector Data Table", "Lineage History", or "all".',
+         call. = FALSE)
   }
 
   db <- .malavi_load(version, "malavi_db_")
   mv <- .malavi_resolve_version(version)
 
+  ## A release bundled before 2026-09-25 has no lineage_history element. It is
+  ## returned as an empty table with the release format's columns rather than
+  ## NULL or an error, so a caller can read it on any release; the attribute
+  ## "malavi_absent" says the table was not in the bundle.
+  if (is.null(db$lineage_history)) {
+    db$lineage_history <- .malavi_empty_lineage_history()
+  }
+
   if (table == "all") {
     tabs <- db[c("hosts_and_sites", "grand_lineage_summary", "morpho_species",
-                 "references", "vector_data")]
+                 "references", "vector_data", "lineage_history")]
     ## Tidy here too. Until version 1.1.2 the "all" branch returned the raw
     ## bundled tables while every single-table call tidied, so the same table
     ## differed in 3,143 cells depending on how it was asked for -- and the
@@ -84,4 +101,21 @@ extract_table <- function(table = "Hosts and Sites Table", version = "latest") {
                                malavi_version = mv))
   }
   .malavi_attach_meta(.clean_table_ws(db[[lookup[[table]]]]), malavi_version = mv)
+}
+
+
+## The Lineage History table's columns, as the release format declares them
+## (malavi_rebuild: release_store.TABLES["lineage_history"]). Used to return an
+## empty, correctly shaped table for a bundle that predates the table.
+.malavi_lineage_history_columns <- c(
+  "LINEAGE_NAME", "EVENT", "OLD_NAME", "NEW_NAME", "OLD_SEQUENCE",
+  "NEW_SEQUENCE", "DATE", "REASON", "SOURCE", "RELEASE")
+
+.malavi_empty_lineage_history <- function() {
+  out <- as.data.frame(setNames(replicate(length(.malavi_lineage_history_columns),
+                                          character(0), simplify = FALSE),
+                                .malavi_lineage_history_columns),
+                       stringsAsFactors = FALSE)
+  attr(out, "malavi_absent") <- TRUE
+  out
 }

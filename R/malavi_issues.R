@@ -68,6 +68,9 @@
   list(
     version      = version,
     gls          = gls,
+    ## the Lineage History table (empty, with its columns, on releases that
+    ## predate it), for the check that its names resolve
+    history      = extract_table("Lineage History", version = version),
     seq_names    = names,
     seq_lineage  = clean_names(names),
     prefix_genus = prefix_genus,
@@ -83,6 +86,35 @@
 ## The registry itself. One list per issue.
 .malavi_issue_registry <- function() {
   list(
+
+    list(
+      title = "Lineage history names that do not resolve",
+      ## A history row promises a mapping: after a rename or a merge the NEW_NAME
+      ## is a lineage in the release and the OLD_NAME is not; after a removal the
+      ## OLD_NAME is gone; after a sequence update the name is still there. A row
+      ## that breaks its promise would send a reader of an old analysis to a name
+      ## that does not exist.
+      check = function(ctx) {
+        h <- ctx$history
+        if (is.null(h) || nrow(h) == 0) return(character(0))
+        known <- unique(ctx$gls$LINEAGE_NAME)
+        moves   <- h$EVENT %in% c("renamed", "merged_into")
+        gone    <- h$EVENT == "removed"
+        updated <- h$EVENT == "sequence_updated"
+        bad <- (moves & (!h$NEW_NAME %in% known | h$OLD_NAME %in% known)) |
+               (gone & h$OLD_NAME %in% known) |
+               (updated & !h$NEW_NAME %in% known)
+        paste0(h$OLD_NAME[bad], " (", h$EVENT[bad], ")")
+      },
+      describe = function(affected, ctx) {
+        paste0(
+          length(affected), " row", if (length(affected) == 1) "" else "s",
+          " of the Lineage History table name", if (length(affected) == 1) "s" else "",
+          " a lineage that does not resolve in this release (a renamed or merged ",
+          "name still present, a removed name still present, or a target name ",
+          "absent): ", paste(sort(affected), collapse = ", "))
+      }
+    ),
 
     list(
       title = "Alignment genus prefix contradicts GENUS_NAME",

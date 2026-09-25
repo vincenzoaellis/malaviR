@@ -8,7 +8,7 @@ extract_table(table = "Hosts and Sites Table", version = "latest")
 }
 \arguments{
 \item{table}{Name of the table to return (see Details), or \code{"all"} to
-return a named list of all five tables. Defaults to \code{"Hosts and Sites Table"}.}
+return a named list of all six tables. Defaults to \code{"Hosts and Sites Table"}.}
 
 \item{version}{MalAvi release to read, as a date string (e.g.
 \code{"2026-03-23"}) or \code{"latest"} (default).}
@@ -23,13 +23,19 @@ the package. MalAvi is no longer downloaded from the web; the tables come from
 the release shipped with \code{malaviR} (see \code{\link{malavi_version}}).
 }
 \details{
-The bundled release provides five tables:
+The bundled release provides six tables:
 \describe{
   \item{\code{"Hosts and Sites Table"}}{host records, sites, and references (\code{hosts_and_sites}).}
   \item{\code{"Grand Lineage Summary"}}{per-lineage summary, including the sequence (\code{grand_lineage_summary}).}
   \item{\code{"Morpho Species Summary"}}{lineages linked to morphologically described species (\code{morpho_species}).}
   \item{\code{"Table of References"}}{reference list (\code{references}).}
   \item{\code{"Vector Data Table"}}{vector records (\code{vector_data}).}
+  \item{\code{"Lineage History"}}{what changed about a lineage name and when:
+    sequence updates, renames, merges and removals (\code{lineage_history}).
+    Added to the release format on 2026-09-25; for a bundled release that
+    predates it the table is returned empty, with its ten columns, so code
+    written against it runs on every release. See
+    \code{\link{lineage_history_map}} to follow old names forward.}
 }
 Either the descriptive name above or its short \code{snake_case} key may be
 supplied.

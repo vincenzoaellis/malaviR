@@ -206,3 +206,24 @@ test_that("the genus-outlier table stored in the bundle is what a fresh computat
   fresh <- malaviR:::.malavi_genus_outliers_bundle(bundle)
   expect_equal(bundle$genus_outliers, fresh)
 })
+
+
+test_that("the lineage-history check reports rows whose names do not resolve", {
+  registry <- malaviR:::.malavi_issue_registry()
+  issue <- registry[[which(vapply(registry, function(i) i$title, character(1)) ==
+                           "Lineage history names that do not resolve")]]
+  gls <- data.frame(LINEAGE_NAME = c("KEEP01", "TARGET01", "STILLHERE01"),
+                    stringsAsFactors = FALSE)
+  history <- data.frame(
+    EVENT    = c("renamed", "merged_into", "removed", "sequence_updated", "removed"),
+    OLD_NAME = c("OLD01", "STILLHERE01", "GONE01", "KEEP01", "STILLHERE01"),
+    NEW_NAME = c("TARGET01", "TARGET01", "", "KEEP01", ""),
+    stringsAsFactors = FALSE)
+  affected <- issue$check(list(gls = gls, history = history))
+  ## the good rows: OLD01 -> TARGET01 (old gone, new present), GONE01 removed, KEEP01 updated
+  ## the bad rows: STILLHERE01 merged yet still present; STILLHERE01 removed yet still present
+  expect_setequal(affected, c("STILLHERE01 (merged_into)", "STILLHERE01 (removed)"))
+  expect_match(issue$describe(affected, list()), "2 rows")
+  ## an empty history is no issue
+  expect_length(issue$check(list(gls = gls, history = history[0, ])), 0)
+})

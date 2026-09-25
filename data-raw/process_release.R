@@ -74,6 +74,21 @@ tables <- list(
   references            = readxl::read_excel(pick("References",          "xlsx")),
   vector_data           = readxl::read_excel(pick("VectorData",          "xlsx"))
 )
+## The Lineage History table ships from the 2026-09-25 format on. A release ZIP
+## without it (every one before that) gets the empty, correctly shaped table, so
+## the bundle always has the element and extract_table() never has to guess.
+history_file <- grep("/LineageHistory.*\\.xlsx$", files, value = TRUE, ignore.case = TRUE)
+if (length(history_file) == 1) {
+  tables$lineage_history <- readxl::read_excel(history_file,
+                                               col_types = "text")
+} else {
+  message("  (no LineageHistory table in this release; bundling it empty)")
+  history_cols <- c("LINEAGE_NAME", "EVENT", "OLD_NAME", "NEW_NAME", "OLD_SEQUENCE",
+                    "NEW_SEQUENCE", "DATE", "REASON", "SOURCE", "RELEASE")
+  tables$lineage_history <- as.data.frame(
+    setNames(replicate(length(history_cols), character(0), simplify = FALSE), history_cols),
+    stringsAsFactors = FALSE)
+}
 tables <- lapply(tables, as.data.frame)  # plain data.frames, not tibbles
 for (nm in names(tables)) message(sprintf("  %-22s %d rows x %d cols",
                                           nm, nrow(tables[[nm]]), ncol(tables[[nm]])))

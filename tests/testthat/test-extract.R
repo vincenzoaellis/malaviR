@@ -14,8 +14,8 @@ test_that("extract_table returns tables and errors on a bad name", {
   ## descriptive name and snake_case key are equivalent
   expect_identical(extract_table("references"), extract_table("Table of References"))
 
-  ## "all" returns the five tables
-  expect_length(extract_table("all"), 5)
+  ## "all" returns the six tables (five plus the Lineage History since 2026-09-25)
+  expect_length(extract_table("all"), 6)
 
   ## bad name is an error, not a message (issue #1)
   expect_error(extract_table("not a real table"), "choose one")
@@ -74,4 +74,18 @@ test_that("the whitespace tidy also removes non-breaking spaces", {
   df <- data.frame(x = c(paste0(nbsp, "AB123"), "  spaced\tout\n "),
                    stringsAsFactors = FALSE)
   expect_equal(malaviR:::.clean_table_ws(df)$x, c("AB123", "spaced out"))
+})
+
+
+test_that("the Lineage History table is always there, with its ten columns", {
+  ## Releases bundled before 2026-09-25 carry no such table; it is returned empty
+  ## rather than failing, so code written against it runs on every release.
+  h <- extract_table("Lineage History")
+  expect_s3_class(h, "data.frame")
+  expect_identical(names(h), c("LINEAGE_NAME", "EVENT", "OLD_NAME", "NEW_NAME",
+                               "OLD_SEQUENCE", "NEW_SEQUENCE", "DATE", "REASON",
+                               "SOURCE", "RELEASE"))
+  expect_identical(extract_table("lineage_history"), h)
+  expect_true(all(h$EVENT %in% c("sequence_updated", "renamed", "merged_into", "removed")))
+  expect_true("lineage_history" %in% names(extract_table("all")))
 })

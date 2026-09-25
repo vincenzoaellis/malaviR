@@ -41,7 +41,7 @@ malavi_version("all")   # every release bundled with this version of the package
 ### Data tables and the alignment
 
 ```r
-hosts_dat <- extract_table("Hosts and Sites Table")   # one of the five MalAvi tables you can access
+hosts_dat <- extract_table("Hosts and Sites Table")   # one of the six MalAvi tables you can access
 aln   <- extract_alignment()                       # the cyt b alignment (it's stored as a DNAbin object...it's just one alignment, no more long vs. all seqs. But also see the sections on synonymies and ambiguous pairs below for some new controls for filtering the alignment)
 plas  <- extract_alignment(genus = "Plasmodium")   # you can filter the alignment by parasite genus
 ```

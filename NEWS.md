@@ -1,3 +1,25 @@
+# malaviR 1.3.3
+
+**A sixth table, "Lineage History".** `extract_table("Lineage History")` (key
+`lineage_history`) returns what changed about a lineage name and when: `sequence_updated`
+(the name kept, the stored sequence replaced by a more complete one), `renamed`,
+`merged_into` and `removed`, each with the old and new name and sequence, the date, the
+reason, the source and the release it first appeared in. It follows the curators' decision
+of 2026-09-24 that a partial lineage completed by a full sequence keeps its old name, and
+that no name changes without a public trail. A bundled release that predates the table
+returns it empty, with its ten columns, so code written against it runs on every release.
+
+**`lineage_history_map(names)`** follows names from an older analysis forward through that
+table to the name in force now, reporting `unchanged`, `renamed`, `merged`, `removed`,
+`sequence_updated` or `unknown`, with the trail of events walked.
+
+**`malavi_issues()` gains a check, "Lineage history names that do not resolve"**: a history
+row whose promise the release does not keep (a renamed or merged name still present, a
+removed name still present, a target absent).
+
+`data-raw/process_release.R` reads the `LineageHistory_<release>.xlsx` table when the ZIP
+carries one and bundles it empty otherwise.
+
 # malaviR 1.3.2
 
 The genus check's sentence is now the short form: the count, the rule once, and the
