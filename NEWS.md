@@ -1,3 +1,14 @@
+# malaviR 1.3.4
+
+**A seventh table, "Genomic Resources".** `extract_table("Genomic Resources")` (key
+`genomic_resources`) lists genomes, transcriptomes and other large sequence records tied to
+a cyt b lineage: the kind of record, its accession and database, its length, the host it
+came from, the study and DOI, and where the row came from. The first rows are the avian
+haemosporidian mitochondrial genomes of the malaviTree backbone whose cytochrome b barcode
+is identical to a MalAvi lineage over the whole 479 bp window (seeded 2026-10-14); records
+whose barcode differs are not in the table. A bundled release that predates the table
+returns it empty, with its eleven columns, so code written against it runs on every release.
+
 # malaviR 1.3.3
 
 **A sixth table, "Lineage History".** `extract_table("Lineage History")` (key

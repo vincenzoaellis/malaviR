@@ -14,8 +14,9 @@ test_that("extract_table returns tables and errors on a bad name", {
   ## descriptive name and snake_case key are equivalent
   expect_identical(extract_table("references"), extract_table("Table of References"))
 
-  ## "all" returns the six tables (five plus the Lineage History since 2026-09-25)
-  expect_length(extract_table("all"), 6)
+  ## "all" returns the seven tables (five, plus the Lineage History since 2026-09-25
+  ## and the Genomic Resources since malaviR 1.3.4)
+  expect_length(extract_table("all"), 7)
 
   ## bad name is an error, not a message (issue #1)
   expect_error(extract_table("not a real table"), "choose one")
@@ -88,4 +89,18 @@ test_that("the Lineage History table is always there, with its ten columns", {
   expect_identical(extract_table("lineage_history"), h)
   expect_true(all(h$EVENT %in% c("sequence_updated", "renamed", "merged_into", "removed")))
   expect_true("lineage_history" %in% names(extract_table("all")))
+})
+
+test_that("the Genomic Resources table is always there, with its eleven columns", {
+  ## Release format since 2026-09-25, first filled 2026-10-14; an older bundle
+  ## returns it empty (attribute malavi_absent) rather than failing.
+  g <- extract_table("Genomic Resources")
+  expect_s3_class(g, "data.frame")
+  expect_identical(names(g), c("LINEAGE_NAME", "RESOURCE_TYPE", "ACCESSION", "DATABASE",
+                               "LENGTH_BP", "DESCRIPTION", "HOST_SPECIES",
+                               "REFERENCE_NAME", "DOI", "SOURCE", "NOTES"))
+  expect_identical(extract_table("genomic_resources"), g)
+  expect_true(all(g$RESOURCE_TYPE %in% c("mitogenome", "mitogenome_partial", "nuclear_genome",
+                                         "apicoplast_genome", "transcriptome", "other")))
+  expect_true("genomic_resources" %in% names(extract_table("all")))
 })

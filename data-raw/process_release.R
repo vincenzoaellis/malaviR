@@ -89,6 +89,18 @@ if (length(history_file) == 1) {
     setNames(replicate(length(history_cols), character(0), simplify = FALSE), history_cols),
     stringsAsFactors = FALSE)
 }
+## The Genomic Resources table, likewise (release format since 2026-09-25).
+genomic_file <- grep("/GenomicResources.*\\.xlsx$", files, value = TRUE, ignore.case = TRUE)
+if (length(genomic_file) == 1) {
+  tables$genomic_resources <- readxl::read_excel(genomic_file, col_types = "text")
+} else {
+  message("  (no GenomicResources table in this release; bundling it empty)")
+  genomic_cols <- c("LINEAGE_NAME", "RESOURCE_TYPE", "ACCESSION", "DATABASE", "LENGTH_BP",
+                    "DESCRIPTION", "HOST_SPECIES", "REFERENCE_NAME", "DOI", "SOURCE", "NOTES")
+  tables$genomic_resources <- as.data.frame(
+    setNames(replicate(length(genomic_cols), character(0), simplify = FALSE), genomic_cols),
+    stringsAsFactors = FALSE)
+}
 tables <- lapply(tables, as.data.frame)  # plain data.frames, not tibbles
 for (nm in names(tables)) message(sprintf("  %-22s %d rows x %d cols",
                                           nm, nrow(tables[[nm]]), ncol(tables[[nm]])))
